@@ -145,3 +145,5 @@ vite.config.ts.timestamp-*
 # Project-specific
 .dev-pids.json
 .dev-logs/
+build/
+static/nahnut-logo.png
