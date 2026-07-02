@@ -141,3 +141,9 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Project-specific
+.dev-pids.json
+.dev-logs/
+build/
+static/nahnut-logo.png
