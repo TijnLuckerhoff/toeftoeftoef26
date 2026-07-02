@@ -334,7 +334,6 @@
 				largeText = parsed.largeText ?? false;
 				speechEnabled = parsed.speechEnabled ?? true;
 				cameraFacingMode = parsed.cameraFacingMode ?? 'environment';
-				if (selectedAllergens.length > 0) mode = 'scan';
 			} catch {
 				localStorage.removeItem(STORAGE_KEY);
 			}
@@ -371,7 +370,6 @@
 				largeText = profile.largeText ?? false;
 				speechEnabled = profile.speechEnabled ?? true;
 				cameraFacingMode = profile.cameraFacingMode ?? 'environment';
-				if (selectedAllergens.length > 0) mode = 'scan';
 			}
 
 			backendStatus = 'Backend verbonden. Profielsync is actief.';
@@ -1057,7 +1055,8 @@
 			<button
 				class="border border-current px-4 py-3 font-bold {mode === 'scan'
 					? 'bg-blue-500 text-white'
-					: 'bg-transparent'}"
+					: 'bg-transparent'} disabled:cursor-not-allowed disabled:opacity-40"
+				disabled={!selectedAllergens.length}
 				type="button"
 				on:click={() => (mode = 'scan')}
 			>
@@ -1378,9 +1377,6 @@
 								</li>
 							{/if}
 						</ol>
-						<p class="mt-2" aria-live="polite">
-							{productLookupBusy ? 'Product wordt opgezocht...' : productStatus}
-						</p>
 					</section>
 
 					<details class="border border-current/30 p-4">
@@ -1388,7 +1384,6 @@
 							>Technische status</summary
 						>
 						<p class="mt-3" aria-live="assertive">{status}</p>
-						<p class="mt-2" aria-live="polite">{guidance}</p>
 						<p class="mt-2">OCR-engine: {workerReady ? 'klaar' : 'niet geladen'}</p>
 						<p>OCR-voortgang: {ocrProgress}%</p>
 						<p>{backendStatus}</p>
