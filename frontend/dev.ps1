@@ -16,7 +16,8 @@ function Test-ProcessRunning {
 	try {
 		$process = Get-Process -Id $ProcessId -ErrorAction Stop
 		return -not $process.HasExited
-	} catch {
+	}
+ catch {
 		return $false
 	}
 }
@@ -36,12 +37,13 @@ function Get-ListeningProcessId {
 
 	try {
 		$connection = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction Stop |
-			Select-Object -First 1
+		Select-Object -First 1
 
 		if ($null -ne $connection) {
 			return [int]$connection.OwningProcess
 		}
-	} catch {
+	}
+ catch {
 		return $null
 	}
 
@@ -70,7 +72,8 @@ function Get-SavedProcesses {
 
 	try {
 		return Get-Content $PidFile -Raw | ConvertFrom-Json
-	} catch {
+	}
+ catch {
 		return $null
 	}
 }
@@ -92,11 +95,8 @@ function Show-Status {
 function Stop-DevServers {
 	$saved = Get-SavedProcesses
 	if ($null -eq $saved) {
-		Write-Host 'No saved dev server processes found.'
 		return
 	}
-
-	Write-Host 'Stopping frontend and backend...'
 
 	if (($null -eq $saved.ownedFrontend) -or $saved.ownedFrontend) {
 		Stop-ProcessTree -ProcessId ([int]$saved.frontend)
@@ -104,15 +104,13 @@ function Stop-DevServers {
 
 	if (($null -eq $saved.ownedBackend) -or $saved.ownedBackend) {
 		Stop-ProcessTree -ProcessId ([int]$saved.backend)
-	} else {
-		Write-Host "Backend PID $($saved.backend) was already running, so it was left alone."
+	}
+ else {
 	}
 
 	if (Test-Path $PidFile) {
 		Remove-Item -LiteralPath $PidFile -Force
 	}
-
-	Write-Host 'Stopped.'
 }
 
 function Wait-ForDevServers {
@@ -123,11 +121,12 @@ function Wait-ForDevServers {
 	)
 
 	Write-Host ''
-	Write-Host 'Press Ctrl+C to stop frontend and backend.'
+	Write-Host 'Press Ctrl+C to stop.'
 
 	try {
 		while ($true) {
-			Start-Sleep -Seconds 2
+			# Use short intervals so a single Ctrl+C is enough to break out.
+			for ($i = 0; $i -lt 10; $i++) { Start-Sleep -Milliseconds 200 }
 
 			if ($OwnedBackend -and -not (Test-ProcessRunning -ProcessId $BackendProcessId)) {
 				throw 'Backend stopped unexpectedly. Check .dev-logs\backend.err.log'
@@ -137,13 +136,17 @@ function Wait-ForDevServers {
 				throw 'Frontend stopped unexpectedly. Check .dev-logs\frontend.err.log'
 			}
 		}
-	} catch [System.Management.Automation.PipelineStoppedException] {
+	}
+ catch [System.Management.Automation.PipelineStoppedException] {
 		# Ctrl+C stops the wait loop. The finally block below does the cleanup.
-	} catch [System.OperationCanceledException] {
+	}
+ catch [System.OperationCanceledException] {
 		# Some terminals surface Ctrl+C this way.
-	} catch {
+	}
+ catch {
 		Write-Host $_.Exception.Message
-	} finally {
+	}
+ finally {
 		Stop-DevServers
 	}
 }
@@ -178,7 +181,8 @@ function Start-DevServers {
 		Write-Host "Backend already running on port 3010 (PID $existingBackendPid). Reusing it."
 		$backend = Get-Process -Id $existingBackendPid
 		$ownedBackend = $false
-	} else {
+	}
+ else {
 		Write-Host 'Starting backend...'
 		$backend = Start-Process -FilePath 'npm.cmd' `
 			-ArgumentList @('run', 'dev') `
@@ -199,9 +203,9 @@ function Start-DevServers {
 		-PassThru
 
 	@{
-		backend = $backend.Id
-		frontend = $frontend.Id
-		ownedBackend = $ownedBackend
+		backend       = $backend.Id
+		frontend      = $frontend.Id
+		ownedBackend  = $ownedBackend
 		ownedFrontend = $true
 	} | ConvertTo-Json | Set-Content -Path $PidFile
 

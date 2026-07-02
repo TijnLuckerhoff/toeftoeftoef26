@@ -1,4 +1,4 @@
-<script>
+﻿<script>
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { BrowserMultiFormatReader } from '@zxing/browser';
 	import { BarcodeFormat, DecodeHintType } from '@zxing/library';
@@ -80,21 +80,129 @@
 	];
 
 	const defaultAllergens = [
-		{ id: 'milk', name: 'Melk / lactose', terms: ['milk', 'melk', 'lactose', 'wei', 'whey', 'casein', 'kaas', 'cream', 'butter'] },
+		{
+			id: 'milk',
+			name: 'Melk / lactose',
+			terms: ['milk', 'melk', 'lactose', 'wei', 'whey', 'casein', 'kaas', 'cream', 'butter']
+		},
 		{ id: 'egg', name: 'Ei', terms: ['egg', 'ei', 'eggs', 'albumen', 'albumin', 'eigeel', 'eier'] },
 		{ id: 'peanut', name: 'Pinda', terms: ['peanut', 'pinda', 'arachis', 'groundnut', 'satay'] },
-		{ id: 'tree-nut', name: 'Boomnoten', terms: ['nut', 'nuts', 'noten', 'almond', 'amandel', 'hazelnut', 'hazelnoot', 'walnut', 'walnoot', 'cashew', 'pistachio', 'pecan', 'macadamia'] },
-		{ id: 'soy', name: 'Soja', terms: ['soy', 'soya', 'soja', 'soybean', 'sojalecithine', 'lecithin'] },
-		{ id: 'wheat', name: 'Tarwe', terms: ['wheat', 'tarwe', 'gluten', 'flour', 'bloem', 'semolina', 'spelt'] },
-		{ id: 'gluten', name: 'Gluten', terms: ['gluten', 'tarwe', 'wheat', 'barley', 'gerst', 'rye', 'rogge', 'spelt', 'malt', 'mout'], cautionTerms: ['malt', 'mout'] },
-		{ id: 'fish', name: 'Vis', terms: ['fish', 'vis', 'anchovy', 'ansjovis', 'cod', 'kabeljauw', 'salmon', 'zalm', 'tuna', 'tonijn'] },
-		{ id: 'shellfish', name: 'Schaaldieren', terms: ['shellfish', 'crustacean', 'schaaldieren', 'shrimp', 'garnaal', 'prawn', 'crab', 'krab', 'lobster', 'kreeft'] },
-		{ id: 'mollusc', name: 'Weekdieren', terms: ['mollusc', 'mollusk', 'weekdieren', 'mussel', 'mossel', 'oyster', 'oester', 'squid', 'inktvis'] },
+		{
+			id: 'tree-nut',
+			name: 'Boomnoten',
+			terms: [
+				'nut',
+				'nuts',
+				'noten',
+				'almond',
+				'amandel',
+				'hazelnut',
+				'hazelnoot',
+				'walnut',
+				'walnoot',
+				'cashew',
+				'pistachio',
+				'pecan',
+				'macadamia'
+			]
+		},
+		{
+			id: 'soy',
+			name: 'Soja',
+			terms: ['soy', 'soya', 'soja', 'soybean', 'sojalecithine', 'lecithin']
+		},
+		{
+			id: 'wheat',
+			name: 'Tarwe',
+			terms: ['wheat', 'tarwe', 'gluten', 'flour', 'bloem', 'semolina', 'spelt']
+		},
+		{
+			id: 'gluten',
+			name: 'Gluten',
+			terms: [
+				'gluten',
+				'tarwe',
+				'wheat',
+				'barley',
+				'gerst',
+				'rye',
+				'rogge',
+				'spelt',
+				'malt',
+				'mout'
+			],
+			cautionTerms: ['malt', 'mout']
+		},
+		{
+			id: 'fish',
+			name: 'Vis',
+			terms: [
+				'fish',
+				'vis',
+				'anchovy',
+				'ansjovis',
+				'cod',
+				'kabeljauw',
+				'salmon',
+				'zalm',
+				'tuna',
+				'tonijn'
+			]
+		},
+		{
+			id: 'shellfish',
+			name: 'Schaaldieren',
+			terms: [
+				'shellfish',
+				'crustacean',
+				'schaaldieren',
+				'shrimp',
+				'garnaal',
+				'prawn',
+				'crab',
+				'krab',
+				'lobster',
+				'kreeft'
+			]
+		},
+		{
+			id: 'mollusc',
+			name: 'Weekdieren',
+			terms: [
+				'mollusc',
+				'mollusk',
+				'weekdieren',
+				'mussel',
+				'mossel',
+				'oyster',
+				'oester',
+				'squid',
+				'inktvis'
+			]
+		},
 		{ id: 'sesame', name: 'Sesam', terms: ['sesame', 'sesam', 'tahini'] },
 		{ id: 'mustard', name: 'Mosterd', terms: ['mustard', 'mosterd'] },
 		{ id: 'celery', name: 'Selderij', terms: ['celery', 'selderij', 'celeriac'] },
 		{ id: 'lupin', name: 'Lupin', terms: ['lupin', 'lupine'] },
-		{ id: 'sulphites', name: 'Sulfiet', terms: ['sulphite', 'sulfite', 'sulfiet', 'sulphur dioxide', 'zwaveldioxide', 'e220', 'e221', 'e222', 'e223', 'e224', 'e226', 'e227', 'e228'] },
+		{
+			id: 'sulphites',
+			name: 'Sulfiet',
+			terms: [
+				'sulphite',
+				'sulfite',
+				'sulfiet',
+				'sulphur dioxide',
+				'zwaveldioxide',
+				'e220',
+				'e221',
+				'e222',
+				'e223',
+				'e224',
+				'e226',
+				'e227',
+				'e228'
+			]
+		},
 		{ id: 'corn', name: 'Mais', terms: ['corn', 'maize', 'mais', 'cornstarch', 'maizena'] },
 		{ id: 'oat', name: 'Haver', terms: ['oat', 'oats', 'haver'] },
 		{ id: 'barley', name: 'Gerst', terms: ['barley', 'gerst', 'malt', 'mout'] },
@@ -104,7 +212,21 @@
 		{ id: 'banana', name: 'Banaan', terms: ['banana', 'banaan'] },
 		{ id: 'strawberry', name: 'Aardbei', terms: ['strawberry', 'aardbei'] },
 		{ id: 'tomato', name: 'Tomaat', terms: ['tomato', 'tomaat'] },
-		{ id: 'cocoa', name: 'Cacao', terms: ['cocoa', 'cacao', 'cacaoboter', 'cocoa butter', 'cacaomassa', 'cocoa mass', 'chocolate', 'chocolade', 'chocoladepoeder'] },
+		{
+			id: 'cocoa',
+			name: 'Cacao',
+			terms: [
+				'cocoa',
+				'cacao',
+				'cacaoboter',
+				'cocoa butter',
+				'cacaomassa',
+				'cocoa mass',
+				'chocolate',
+				'chocolade',
+				'chocoladepoeder'
+			]
+		},
 		{ id: 'coconut', name: 'Kokos', terms: ['coconut', 'kokos'] },
 		{ id: 'almond', name: 'Amandel', terms: ['almond', 'amandel'] },
 		{ id: 'hazelnut', name: 'Hazelnoot', terms: ['hazelnut', 'hazelnoot'] },
@@ -124,12 +246,20 @@
 		{ id: 'onion', name: 'Ui', terms: ['onion', 'ui', 'uien'] },
 		{ id: 'carrot', name: 'Wortel', terms: ['carrot', 'wortel'] },
 		{ id: 'apple', name: 'Appel', terms: ['apple', 'appel'] },
-		{ id: 'citrus', name: 'Citrus', terms: ['citrus', 'orange', 'sinaasappel', 'lemon', 'citroen', 'lime', 'limoen'] },
+		{
+			id: 'citrus',
+			name: 'Citrus',
+			terms: ['citrus', 'orange', 'sinaasappel', 'lemon', 'citroen', 'lime', 'limoen']
+		},
 		{ id: 'mushroom', name: 'Paddenstoel', terms: ['mushroom', 'champignon', 'paddenstoel'] },
 		{ id: 'yeast', name: 'Gist', terms: ['yeast', 'gist'] },
 		{ id: 'gelatin', name: 'Gelatine', terms: ['gelatin', 'gelatine'] },
 		{ id: 'aspartame', name: 'Aspartame', terms: ['aspartame', 'aspartaam', 'e951'] },
-		{ id: 'msg', name: 'MSG', terms: ['msg', 'monosodium glutamate', 'mononatriumglutamaat', 'e621'] }
+		{
+			id: 'msg',
+			name: 'MSG',
+			terms: ['msg', 'monosodium glutamate', 'mononatriumglutamaat', 'e621']
+		}
 	];
 
 	let allergens = defaultAllergens;
@@ -246,7 +376,8 @@
 
 			backendStatus = 'Backend verbonden. Profielsync is actief.';
 		} catch (error) {
-			backendStatus = 'Backend niet bereikbaar. Lokaal profiel en offline allergenenlijst worden gebruikt.';
+			backendStatus =
+				'Backend niet bereikbaar. Lokaal profiel en offline allergenenlijst worden gebruikt.';
 			console.info(error);
 		}
 	}
@@ -258,7 +389,13 @@
 	async function saveProfile() {
 		localStorage.setItem(
 			STORAGE_KEY,
-			JSON.stringify({ selectedAllergens, highContrast, largeText, speechEnabled, cameraFacingMode })
+			JSON.stringify({
+				selectedAllergens,
+				highContrast,
+				largeText,
+				speechEnabled,
+				cameraFacingMode
+			})
 		);
 		status = `Profiel opgeslagen met ${selectedAllergens.length} allergenen.`;
 		mode = 'scan';
@@ -268,7 +405,13 @@
 			const response = await fetch('/api/profile', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ selectedAllergens, highContrast, largeText, speechEnabled, cameraFacingMode })
+				body: JSON.stringify({
+					selectedAllergens,
+					highContrast,
+					largeText,
+					speechEnabled,
+					cameraFacingMode
+				})
 			});
 
 			if (!response.ok) throw new Error('Profiel opslaan mislukt.');
@@ -372,7 +515,8 @@
 	}
 
 	async function analyzeBarcodeFrame() {
-		if (!video || !canvas || !cameraReady || barcodeBusy || video.videoWidth === 0 || barcodeLocked) return;
+		if (!video || !canvas || !cameraReady || barcodeBusy || video.videoWidth === 0 || barcodeLocked)
+			return;
 
 		const context = drawCameraFrame(960);
 		if (!context) return;
@@ -381,7 +525,8 @@
 		try {
 			const barcodeFound = await detectBarcodeInFrame(canvas);
 			if (!barcodeFound) {
-				barcodeStatus = 'Barcode wordt gezocht. Houd de streepjescode groot, recht en scherp in beeld.';
+				barcodeStatus =
+					'Barcode wordt gezocht. Houd de streepjescode groot, recht en scherp in beeld.';
 			}
 		} finally {
 			barcodeBusy = false;
@@ -389,7 +534,8 @@
 	}
 
 	async function analyzeTextFrame() {
-		if (!video || !canvas || !cameraReady || ocrBusy || video.videoWidth === 0 || barcodeLocked) return;
+		if (!video || !canvas || !cameraReady || ocrBusy || video.videoWidth === 0 || barcodeLocked)
+			return;
 
 		const context = drawCameraFrame(960);
 		if (!context) return;
@@ -411,7 +557,9 @@
 			const confidence = Math.round(result.data.confidence || 0);
 
 			if (extractedText.length < 20 || confidence < 35) {
-				updateGuidance('Tekst is zichtbaar maar nog niet leesbaar. Houd stil en richt het label recht op de camera.');
+				updateGuidance(
+					'Tekst is zichtbaar maar nog niet leesbaar. Houd stil en richt het label recht op de camera.'
+				);
 				return;
 			}
 
@@ -458,7 +606,8 @@
 
 		if (!('BarcodeDetector' in window)) {
 			barcodeSupported = Boolean(zxingReader);
-			barcodeStatus = 'ZXing barcodescanner actief. Richt de streepjescode groot en recht in beeld.';
+			barcodeStatus =
+				'ZXing barcodescanner actief. Richt de streepjescode groot en recht in beeld.';
 			return;
 		}
 
@@ -469,7 +618,8 @@
 			barcodeStatus = 'Automatische barcodescan actief. Richt de barcode groot en scherp in beeld.';
 		} catch (error) {
 			barcodeSupported = Boolean(zxingReader);
-			barcodeStatus = 'ZXing barcodescanner actief. Richt de streepjescode groot en recht in beeld.';
+			barcodeStatus =
+				'ZXing barcodescanner actief. Richt de streepjescode groot en recht in beeld.';
 			console.info(error);
 		}
 	}
@@ -502,7 +652,12 @@
 		return {
 			barcode,
 			frame: detected.boundingBox
-				? frameFromBounds(detected.boundingBox.x, detected.boundingBox.y, detected.boundingBox.width, detected.boundingBox.height)
+				? frameFromBounds(
+						detected.boundingBox.x,
+						detected.boundingBox.y,
+						detected.boundingBox.width,
+						detected.boundingBox.height
+					)
 				: null
 		};
 	}
@@ -548,9 +703,7 @@
 		const minX = Math.max(0, Math.min(...xs) - sourceCanvas.width * 0.05);
 		const maxX = Math.min(sourceCanvas.width, Math.max(...xs) + sourceCanvas.width * 0.05);
 		const estimatedY = estimateBarcodeVerticalBounds(sourceCanvas, minX, maxX, centerY);
-		const minY = estimatedY
-			? estimatedY.minY
-			: Math.max(0, centerY - sourceCanvas.height * 0.14);
+		const minY = estimatedY ? estimatedY.minY : Math.max(0, centerY - sourceCanvas.height * 0.14);
 		const maxY = estimatedY
 			? estimatedY.maxY
 			: Math.min(sourceCanvas.height, centerY + sourceCanvas.height * 0.14);
@@ -642,7 +795,11 @@
 				const gx = Math.abs(gray[index - 1] - gray[index + 1]);
 				const gy = Math.abs(gray[index - width] - gray[index + width]);
 				const laplacian = Math.abs(
-					gray[index - width] + gray[index + width] + gray[index - 1] + gray[index + 1] - gray[index] * 4
+					gray[index - width] +
+						gray[index + width] +
+						gray[index - 1] +
+						gray[index + 1] -
+						gray[index] * 4
 				);
 				if (gx + gy > 55) {
 					edgeCount += 1;
@@ -680,12 +837,17 @@
 
 	function guidanceFromMetrics(metrics) {
 		if (metrics.average < 45) return 'Het beeld is te donker. Ga naar beter licht.';
-		if (metrics.average > 220) return 'Het label is overbelicht of reflecteert. Kantel het weg van de glans.';
-		if (metrics.edgeRatio < 0.012) return 'Geen tekst gevonden. Probeer de ingredientenkant van de verpakking.';
-		if (metrics.edgeRatio < 0.025) return 'De tekst is mogelijk te ver weg. Beweeg de camera dichterbij.';
-		if (metrics.centerRatio < 0.35) return 'Tekst staat aan de rand van het beeld. Centreer het label.';
+		if (metrics.average > 220)
+			return 'Het label is overbelicht of reflecteert. Kantel het weg van de glans.';
+		if (metrics.edgeRatio < 0.012)
+			return 'Geen tekst gevonden. Probeer de ingredientenkant van de verpakking.';
+		if (metrics.edgeRatio < 0.025)
+			return 'De tekst is mogelijk te ver weg. Beweeg de camera dichterbij.';
+		if (metrics.centerRatio < 0.35)
+			return 'Tekst staat aan de rand van het beeld. Centreer het label.';
 		if (metrics.blur < 7) return 'Het beeld is te wazig. Houd de camera even stil.';
-		if (metrics.contrast < 28) return 'Het tekstcontrast is laag. Verbeter het licht of kantel de verpakking.';
+		if (metrics.contrast < 28)
+			return 'Het tekstcontrast is laag. Verbeter het licht of kantel de verpakking.';
 		return 'Tekst gevonden. Houd stil terwijl ik lees.';
 	}
 
@@ -723,7 +885,8 @@
 
 			if (!response.ok || !data.found) {
 				productStatus = `Product niet gevonden. De barcode is mogelijk niet leesbaar in de productdatabase, of het is een buitenlands/niet-geregistreerd artikel.`;
-				status = 'Product onbekend. Er kan geen betrouwbare allergiecheck worden gedaan via deze barcode.';
+				status =
+					'Product onbekend. Er kan geen betrouwbare allergiecheck worden gedaan via deze barcode.';
 				guidance = status;
 				speak(status);
 				return;
@@ -743,8 +906,10 @@
 				speak(productStatus);
 			}
 		} catch (error) {
-			productStatus = 'Productinformatie kon niet worden opgehaald. De barcode blijft bewaard, maar de allergiecheck kan niet betrouwbaar worden uitgevoerd.';
-			status = 'Productinformatie niet beschikbaar. Mogelijk is het artikel buitenlands, onbekend of tijdelijk niet bereikbaar.';
+			productStatus =
+				'Productinformatie kon niet worden opgehaald. De barcode blijft bewaard, maar de allergiecheck kan niet betrouwbaar worden uitgevoerd.';
+			status =
+				'Productinformatie niet beschikbaar. Mogelijk is het artikel buitenlands, onbekend of tijdelijk niet bereikbaar.';
 			guidance = status;
 			speak(status);
 			console.info(error);
@@ -802,8 +967,15 @@
 		if (!speechEnabled || typeof speechSynthesis === 'undefined') return;
 		speechSynthesis.cancel();
 		const utterance = new SpeechSynthesisUtterance(message);
+		utterance.lang = 'nl-NL';
+		utterance.volume = 1;
 		utterance.rate = 0.95;
-		speechSynthesis.speak(utterance);
+		// Small delay so cancel() fully flushes before the new utterance queues.
+		// Also resumes in case synthesis was paused (e.g. screen lock on mobile).
+		setTimeout(() => {
+			if (speechSynthesis.paused) speechSynthesis.resume();
+			speechSynthesis.speak(utterance);
+		}, 50);
 	}
 </script>
 
@@ -823,11 +995,16 @@
 		Ga naar de app
 	</a>
 
-	<main id="main-content" class="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 py-5 sm:px-6">
+	<main
+		id="main-content"
+		class="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 py-5 sm:px-6"
+	>
 		<header class="flex flex-col gap-3 border-b border-current/20 pb-4">
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<div>
-					<p class="text-sm font-semibold uppercase tracking-wide text-emerald-400">Hackathon prototype</p>
+					<p class="text-sm font-semibold uppercase tracking-wide text-blue-400">
+						Hackathon prototype
+					</p>
 					<h1 class="text-3xl font-bold sm:text-5xl">Allergies Detect</h1>
 				</div>
 				<div class="flex flex-wrap gap-2" aria-label="Toegankelijkheidsinstellingen">
@@ -845,11 +1022,14 @@
 					</label>
 				</div>
 			</div>
-			<p class="max-w-3xl">
-				Stel in welke allergenen je moet vermijden, richt je telefoon op een etiket en dit prototype
-				gebruikt Tesseract OCR met gesproken camerabegeleiding. Het hangt niet af van barcodedatabases
-				of betaalde AI-vision-API's.
-			</p>
+			<details class="max-w-3xl">
+				<summary class="cursor-pointer font-semibold">Hoe werkt het?</summary>
+				<p class="mt-2">
+					Stel in welke allergenen je moet vermijden, richt je telefoon op een etiket en dit
+					prototype gebruikt Tesseract OCR met gesproken camerabegeleiding. Het hangt niet af van
+					barcodedatabases of betaalde AI-vision-API's.
+				</p>
+			</details>
 		</header>
 
 		<details class="border-l-4 border-yellow-300 bg-yellow-300/15 p-4">
@@ -858,16 +1038,16 @@
 			</summary>
 			<p class="mt-3">
 				Fout-positieve en fout-negatieve resultaten zijn mogelijk. OCR kan falen bij gebogen
-				verpakkingen, glanzende reflecties, tekst met laag contrast, kleine letters, gevouwen labels,
-				bewegingsonscherpte, onbekende talen of onvolledige ingredientenlijsten. Gebruik dit niet als
-				enige veiligheidscontrole voor echte medische beslissingen.
+				verpakkingen, glanzende reflecties, tekst met laag contrast, kleine letters, gevouwen
+				labels, bewegingsonscherpte, onbekende talen of onvolledige ingredientenlijsten. Gebruik dit
+				niet als enige veiligheidscontrole voor echte medische beslissingen.
 			</p>
 		</details>
 
 		<nav class="grid grid-cols-2 gap-2" aria-label="App-onderdelen">
 			<button
 				class="border border-current px-4 py-3 font-bold {mode === 'setup'
-					? 'bg-emerald-400 text-black'
+					? 'bg-blue-500 text-white'
 					: 'bg-transparent'}"
 				type="button"
 				on:click={() => (mode = 'setup')}
@@ -876,7 +1056,7 @@
 			</button>
 			<button
 				class="border border-current px-4 py-3 font-bold {mode === 'scan'
-					? 'bg-emerald-400 text-black'
+					? 'bg-blue-500 text-white'
 					: 'bg-transparent'}"
 				type="button"
 				on:click={() => (mode = 'scan')}
@@ -885,8 +1065,38 @@
 			</button>
 		</nav>
 
+		{#if mode === 'scan' && matchedAllergens.length}
+			<div class="lg:hidden" aria-live="assertive">
+				<section class="border-2 border-blue-500 p-4" aria-labelledby="mobile-result-heading">
+					<h3 id="mobile-result-heading" class="mb-3 text-xl font-bold">Allergieresultaat</h3>
+					<ul class="space-y-2">
+						{#each matchedAllergens as match}
+							<li
+								class="border-2 p-3 font-semibold"
+								class:border-red-900={match.severity !== 'caution'}
+								class:bg-red-700={match.severity !== 'caution'}
+								class:text-white={match.severity !== 'caution'}
+								class:border-orange-700={match.severity === 'caution'}
+								class:bg-orange-300={match.severity === 'caution'}
+								class:text-black={match.severity === 'caution'}
+							>
+								<strong>{match.name}</strong><br />
+								<span>
+									{match.severity === 'caution' ? 'Mogelijke aanwijzing' : 'Allergeen gevonden'}:
+									{match.matchedTerms.join(', ')}
+								</span>
+							</li>
+						{/each}
+					</ul>
+				</section>
+			</div>
+		{/if}
+
 		{#if mode === 'setup'}
-			<section class="grid gap-5 lg:grid-cols-[1fr_20rem]" aria-labelledby="profile-heading">
+			<section
+				class="grid gap-5 lg:grid-cols-[1fr_20rem] pb-24 lg:pb-0"
+				aria-labelledby="profile-heading"
+			>
 				<div>
 					<h2 id="profile-heading" class="mb-2 text-2xl font-bold">Allergieprofiel</h2>
 					<p class="mb-4">
@@ -895,7 +1105,7 @@
 					</p>
 					<div class="mb-4 flex flex-wrap gap-2">
 						<button
-							class="bg-emerald-400 px-4 py-3 font-bold text-black"
+							class="bg-blue-500 px-4 py-3 font-bold text-white"
 							type="button"
 							on:click={selectAllAllergens}
 						>
@@ -911,14 +1121,19 @@
 					</div>
 					<div class="grid gap-4">
 						{#each categorizedAllergens as category}
-							<section class="border border-current/20 p-3" aria-labelledby={`category-${category.id}`}>
-								<h3 id={`category-${category.id}`} class="mb-3 text-lg font-bold">{category.name}</h3>
+							<section
+								class="border border-current/20 p-3"
+								aria-labelledby={`category-${category.id}`}
+							>
+								<h3 id={`category-${category.id}`} class="mb-3 text-lg font-bold">
+									{category.name}
+								</h3>
 								<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
 									{#each category.allergens as allergen}
 										<label
 											class="flex min-h-14 items-center gap-3 border border-current/30 p-3"
-											class:bg-emerald-400={selectedAllergens.includes(allergen.id)}
-											class:text-black={selectedAllergens.includes(allergen.id)}
+											class:bg-blue-500={selectedAllergens.includes(allergen.id)}
+											class:text-white={selectedAllergens.includes(allergen.id)}
 										>
 											<input
 												checked={selectedAllergens.includes(allergen.id)}
@@ -939,7 +1154,7 @@
 						{selectedNames || 'Nog geen allergenen geselecteerd.'}
 					</p>
 					<button
-						class="mt-4 w-full bg-emerald-400 px-4 py-4 font-bold text-black disabled:cursor-not-allowed disabled:opacity-50"
+						class="mt-4 w-full bg-blue-500 px-4 py-4 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
 						disabled={!selectedAllergens.length}
 						type="button"
 						on:click={saveProfile}
@@ -948,120 +1163,168 @@
 					</button>
 				</aside>
 			</section>
+			<div
+				class="fixed bottom-0 left-0 right-0 z-40 border-t border-current/20 p-3 lg:hidden"
+				class:bg-black={highContrast}
+				class:bg-slate-50={!highContrast}
+			>
+				<button
+					class="w-full bg-blue-500 px-4 py-4 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+					disabled={!selectedAllergens.length}
+					type="button"
+					on:click={saveProfile}
+				>
+					Profiel opslaan{selectedAllergens.length
+						? ' (' + selectedAllergens.length + ' geselecteerd)'
+						: ''}
+				</button>
+			</div>
 		{:else}
-			<section class="grid gap-5 lg:grid-cols-[1fr_24rem]" aria-labelledby="scanner-heading">
+			<section
+				class="grid gap-5 lg:grid-cols-[1fr_24rem]"
+				class:pb-24={barcodeLocked}
+				aria-labelledby="scanner-heading"
+			>
 				<div class="flex flex-col gap-4">
-					<div class="flex flex-wrap items-center justify-between gap-3">
-						<div>
-							<h2 id="scanner-heading" class="text-2xl font-bold">Barcode scanner</h2>
-							<details class="mt-2 border border-current/25 px-3 py-2">
-								<summary class="cursor-pointer font-semibold">
-									Gekozen profiel ({selectedAllergens.length})
-								</summary>
-								<p class="mt-2">{selectedNames || 'Nog geen allergenen geselecteerd.'}</p>
-							</details>
-						</div>
-						<div class="flex flex-wrap items-end gap-2">
-							<label class="flex flex-col gap-1 font-semibold" for="camera-facing-mode">
-								<span>Camera</span>
-								<select
-									id="camera-facing-mode"
-									bind:value={cameraFacingMode}
-									class="min-h-12 border border-current/40 bg-transparent px-3"
+					{#if !barcodeLocked}
+						<div class="flex flex-wrap items-center justify-between gap-3">
+							<div>
+								<h2 id="scanner-heading" class="text-2xl font-bold">Barcode scanner</h2>
+								<details class="mt-2 border border-current/25 px-3 py-2">
+									<summary class="cursor-pointer font-semibold">
+										Gekozen profiel ({selectedAllergens.length})
+									</summary>
+									<p class="mt-2">{selectedNames || 'Nog geen allergenen geselecteerd.'}</p>
+								</details>
+							</div>
+							<div class="flex flex-wrap items-end gap-2">
+								<label class="flex flex-col gap-1 font-semibold sm:hidden" for="camera-facing-mode">
+									<span>Camera</span>
+									<select
+										id="camera-facing-mode"
+										bind:value={cameraFacingMode}
+										class="min-h-12 border border-current/40 bg-transparent px-3"
+										disabled={scanning}
+									>
+										<option class="text-black" value="environment">Achtercamera</option>
+										<option class="text-black" value="user">Voorcamera</option>
+									</select>
+								</label>
+								<button
+									class="bg-blue-500 px-4 py-3 font-bold text-white disabled:opacity-50"
 									disabled={scanning}
+									type="button"
+									on:click={startCamera}
 								>
-									<option class="text-black" value="environment">Achtercamera</option>
-									<option class="text-black" value="user">Voorcamera</option>
-								</select>
-							</label>
+									Start camera
+								</button>
+								<button
+									class="border border-current px-4 py-3 font-bold disabled:opacity-50"
+									disabled={!scanning}
+									type="button"
+									on:click={stopScanning}
+								>
+									Stop
+								</button>
+							</div>
+						</div>
+
+						<div class="relative overflow-hidden border border-current/40 bg-slate-900">
+							{#if barcodeSnapshot}
+								<img
+									alt="Vastgelegd camerabeeld van de gevonden barcode"
+									class="aspect-[4/3] w-full object-cover"
+									src={barcodeSnapshot}
+								/>
+							{:else}
+								<video
+									bind:this={video}
+									class="aspect-[4/3] w-full object-cover"
+									aria-label="Cameravoorbeeld"
+									muted
+									playsinline
+								></video>
+								<div class="pointer-events-none absolute inset-8 border-4 border-blue-400"></div>
+							{/if}
+							{#if barcodeFrame}
+								<div
+									class="pointer-events-none absolute border-4 border-blue-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.18)]"
+									style:left={barcodeFrame.left}
+									style:top={barcodeFrame.top}
+									style:width={barcodeFrame.width}
+									style:height={barcodeFrame.height}
+									aria-hidden="true"
+								>
+									<div
+										class="absolute -top-8 left-0 bg-blue-400 px-2 py-1 text-sm font-bold text-white"
+									>
+										Barcode gezien
+									</div>
+								</div>
+							{/if}
+							<div
+								class="absolute bottom-0 left-0 right-0 bg-black/80 p-3 text-white"
+								aria-live="polite"
+							>
+								{guidance}
+							</div>
+						</div>
+					{/if}
+
+					{#if barcodeLocked}
+						<div
+							class="fixed bottom-0 left-0 right-0 z-40 border-t border-current/20 p-3"
+							class:bg-black={highContrast}
+							class:bg-slate-50={!highContrast}
+						>
 							<button
-								class="bg-emerald-400 px-4 py-3 font-bold text-black disabled:opacity-50"
-								disabled={scanning}
+								class="w-full bg-blue-500 px-4 py-4 font-bold text-white"
 								type="button"
 								on:click={startCamera}
 							>
-								Start camera
-							</button>
-							<button
-								class="border border-current px-4 py-3 font-bold disabled:opacity-50"
-								disabled={!scanning}
-								type="button"
-								on:click={stopScanning}
-							>
-								Stop
+								Scan opnieuw
 							</button>
 						</div>
-					</div>
-
-					<div class="relative overflow-hidden border border-current/40 bg-slate-900">
-						{#if barcodeSnapshot}
-							<img
-								alt="Vastgelegd camerabeeld van de gevonden barcode"
-								class="aspect-[4/3] w-full object-cover"
-								src={barcodeSnapshot}
-							/>
-						{:else}
-							<video
-								bind:this={video}
-								class="aspect-[4/3] w-full object-cover"
-								aria-label="Cameravoorbeeld"
-								muted
-								playsinline
-							></video>
-							<div class="pointer-events-none absolute inset-8 border-4 border-emerald-300"></div>
-						{/if}
-						{#if barcodeFrame}
-							<div
-								class="pointer-events-none absolute border-4 border-lime-300 shadow-[0_0_0_9999px_rgba(0,0,0,0.18)]"
-								style:left={barcodeFrame.left}
-								style:top={barcodeFrame.top}
-								style:width={barcodeFrame.width}
-								style:height={barcodeFrame.height}
-								aria-hidden="true"
-							>
-								<div class="absolute -top-8 left-0 bg-lime-300 px-2 py-1 text-sm font-bold text-black">
-									Barcode gezien
-								</div>
-							</div>
-						{/if}
-						<div class="absolute bottom-0 left-0 right-0 bg-black/80 p-3 text-white" aria-live="polite">
-							{guidance}
-						</div>
-					</div>
+					{/if}
 
 					<canvas bind:this={canvas} class="hidden" aria-hidden="true"></canvas>
 
-					<section class="border border-current/30 p-4" aria-labelledby="barcode-heading">
-						<h3 id="barcode-heading" class="text-xl font-bold">Barcode zoeken</h3>
-						<p class="mt-2">
-							Scan de barcode met de camera of voer de code handmatig in. Als het product niet bekend is,
-							toont de app een duidelijke melding.
-						</p>
-						<div class="mt-3 flex flex-col gap-2 sm:flex-row">
-							<label class="sr-only" for="manual-barcode">Barcode</label>
-							<input
-								id="manual-barcode"
-								bind:value={manualBarcode}
-								class="min-h-12 flex-1 border border-current/40 bg-transparent px-3"
-								inputmode="numeric"
-								pattern="[0-9]*"
-								placeholder="Bijvoorbeeld 8712345678901"
-								type="text"
-							/>
-							<button
-								class="bg-emerald-400 px-4 py-3 font-bold text-black"
-								type="button"
-								on:click={saveManualBarcode}
-							>
-								Zoeken
-							</button>
-						</div>
-						<p class="mt-2" aria-live="polite">{barcodeStatus}</p>
-					</section>
+					{#if !barcodeLocked}
+						<section class="border border-current/30 p-4" aria-labelledby="barcode-heading">
+							<h3 id="barcode-heading" class="text-xl font-bold">Barcode zoeken</h3>
+							<p class="mt-2">
+								Scan de barcode met de camera of voer de code handmatig in. Als het product niet
+								bekend is, toont de app een duidelijke melding.
+							</p>
+							<div class="mt-3 flex flex-col gap-2 sm:flex-row">
+								<label class="sr-only" for="manual-barcode">Barcode</label>
+								<input
+									id="manual-barcode"
+									bind:value={manualBarcode}
+									class="min-h-12 flex-1 border border-current/40 bg-transparent px-3"
+									inputmode="numeric"
+									pattern="[0-9]*"
+									placeholder="Bijvoorbeeld 8712345678901"
+									type="text"
+								/>
+								<button
+									class="bg-blue-500 px-4 py-3 font-bold text-white"
+									type="button"
+									on:click={saveManualBarcode}
+								>
+									Zoeken
+								</button>
+							</div>
+							<p class="mt-2" aria-live="polite">{barcodeStatus}</p>
+						</section>
+					{/if}
 				</div>
 
 				<aside class="flex flex-col gap-4">
-					<section class="border border-current/30 p-4" aria-labelledby="result-heading">
+					<section
+						class="hidden border border-current/30 p-4 lg:block"
+						aria-labelledby="result-heading"
+					>
 						<h3 id="result-heading" class="text-xl font-bold">Allergieresultaat</h3>
 						{#if matchedAllergens.length}
 							<ul class="mt-3 space-y-2">
@@ -1078,7 +1341,9 @@
 										<strong>{match.name}</strong>
 										<br />
 										<span>
-											{match.severity === 'caution' ? 'Mogelijke aanwijzing' : 'Allergeen gevonden'}:
+											{match.severity === 'caution'
+												? 'Mogelijke aanwijzing'
+												: 'Allergeen gevonden'}:
 											{match.matchedTerms.join(', ')}
 										</span>
 									</li>
@@ -1092,22 +1357,22 @@
 					<section class="border border-current/30 p-4" aria-labelledby="product-heading">
 						<h3 id="product-heading" class="text-xl font-bold">Scanoverzicht</h3>
 						<ol class="mt-3 grid gap-3">
-							<li class="border-l-4 border-emerald-400 pl-3">
+							<li class="border-l-4 border-blue-500 pl-3">
 								<strong>1. Barcode</strong>
 								<p>{detectedBarcode || 'Nog geen barcode gevonden.'}</p>
 							</li>
-							<li class="border-l-4 border-emerald-400 pl-3">
+							<li class="border-l-4 border-blue-500 pl-3">
 								<strong>2. Product</strong>
 								<p>{productName || 'Nog geen product bekend.'}</p>
 							</li>
 							{#if productMeta}
-								<li class="border-l-4 border-emerald-400 pl-3">
+								<li class="border-l-4 border-blue-500 pl-3">
 									<strong>Details</strong>
 									<p>{productMeta}</p>
 								</li>
 							{/if}
 							{#if productIngredients}
-								<li class="border-l-4 border-emerald-400 pl-3">
+								<li class="border-l-4 border-blue-500 pl-3">
 									<strong>3. Ingredienten</strong>
 									<p>Ingredienten uit Open Food Facts gebruikt voor de allergiecheck.</p>
 								</li>
@@ -1119,7 +1384,9 @@
 					</section>
 
 					<details class="border border-current/30 p-4">
-						<summary id="live-status" class="cursor-pointer text-xl font-bold">Technische status</summary>
+						<summary id="live-status" class="cursor-pointer text-xl font-bold"
+							>Technische status</summary
+						>
 						<p class="mt-3" aria-live="assertive">{status}</p>
 						<p class="mt-2" aria-live="polite">{guidance}</p>
 						<p class="mt-2">OCR-engine: {workerReady ? 'klaar' : 'niet geladen'}</p>
