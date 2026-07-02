@@ -7,6 +7,7 @@
 	import creditsMarkdown from '$lib/credits.md?raw';
 	import { Capacitor } from '@capacitor/core';
 	import { TextToSpeech } from '@capacitor-community/text-to-speech';
+	import { Ocr } from '@jcesarmobile/capacitor-ocr';
 
 	const STORAGE_KEY = 'allergies-detect-profile';
 
@@ -511,12 +512,25 @@
 	let ocrProgress = 0;
 	let ocrLastCandidate = '';
 	let ocrConsistentCount = 0;
+	let ocrTextStableCount = 0;
+	let ocrSnapshot = '';
+	let ingredientDebugMode = false;
+	let barcodeDebugMode = false;
+	let debugResultVisible = false;
+	let debugResumeMode = '';
+	let debugAutoCapture = false;
+	let debugCaptureInterval = 750;
+	let ocrEngine = '';
+	let ocrRawText = '';
+	let debugCaptureCount = 0;
+	let lastDebugBarcodeAt = 0;
 	let status = 'Stel eerst je allergieprofiel in.';
 	let guidance = 'De camera is nog niet actief.';
 	let extractedText = '';
 	let matchedAllergens = [];
 	let lastSpoken = '';
 	let lastGuidanceAt = 0;
+	let lastVisibleGuidanceAt = 0;
 	let barcodeTimer;
 	let ocrTimer;
 	let stream;
@@ -746,12 +760,22 @@
 		cameraFacingMode = cameraFacingMode === 'environment' ? 'user' : 'environment';
 		if (scanning) {
 			cameraLoading = true;
-			await startCamera();
+			if (ocrOnlyMode) {
+				await startCameraSession('Camera gewisseld. Richt op de ingrediëntenlijst.');
+			} else if (barcodeDebugMode) {
+				await startCameraSession('Debug barcodecamera klaar. Richt op de barcode.');
+			} else {
+				await startCamera();
+			}
 		}
 	}
 
 	function returnToSelection() {
 		stopScanning();
+		ingredientDebugMode = false;
+		barcodeDebugMode = false;
+		debugResultVisible = false;
+		debugResumeMode = '';
 		mode = 'setup';
 	}
 
@@ -765,6 +789,7 @@
 
 		try {
 			mode = 'scanning';
+			debugResumeMode = '';
 			resetScanOutput();
 			await tick();
 			await startCameraSession('Camera klaar. Richt op de barcode.');
@@ -798,10 +823,18 @@
 		status = readyMessage;
 		guidance = readyMessage;
 		speak(status);
-		ensureBarcodeReaders();
-		await ensureWorker();
-		barcodeTimer = window.setInterval(analyzeBarcodeFrame, 250);
-		ocrTimer = window.setInterval(analyzeTextFrame, 1500);
+		if (!ocrOnlyMode) {
+			ensureBarcodeReaders();
+			barcodeTimer = window.setInterval(analyzeBarcodeFrame, 250);
+		} else {
+			await ensureWorker();
+			barcodeStatus = '';
+			barcodeFrame = null;
+			ocrTimer = window.setInterval(
+				analyzeTextFrame,
+				ingredientDebugMode ? Math.max(150, Number(debugCaptureInterval) || 750) : 1800
+			);
+		}
 		analyzeFrame();
 	}
 
@@ -826,16 +859,15 @@
 			}
 		});
 		await worker.setParameters({
-			tessedit_char_whitelist:
-				'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,;:()[]/%+- ',
-			preserve_interword_spaces: '1'
+			preserve_interword_spaces: '1',
+			tessedit_pageseg_mode: '6'
 		});
 		workerReady = true;
 	}
 
 	async function analyzeFrame() {
-		await analyzeBarcodeFrame();
-		await analyzeTextFrame();
+		if (!ocrOnlyMode) await analyzeBarcodeFrame();
+		if (ocrOnlyMode) await analyzeTextFrame();
 	}
 
 	async function analyzeBarcodeFrame() {
@@ -850,7 +882,7 @@
 		)
 			return;
 
-		const context = drawCameraFrame(960);
+		const context = drawCameraFrame(ocrOnlyMode ? 1280 : 960);
 		if (!context) return;
 
 		barcodeBusy = true;
@@ -865,7 +897,7 @@
 		}
 	}
 
-	async function analyzeTextFrame() {
+	async function analyzeTextFrame(forceCapture = false) {
 		if (
 			!video ||
 			!canvas ||
@@ -884,47 +916,88 @@
 		const instruction = guidanceFromMetrics(metrics);
 		updateGuidance(instruction);
 
-		if (!metrics.canAttemptOcr) return;
+		if (ingredientDebugMode && !debugAutoCapture && !forceCapture) {
+			return;
+		}
+
+		if (!metrics.canAttemptOcr && !ingredientDebugMode) {
+			ocrTextStableCount = 0;
+			return;
+		}
+
+		if (ocrOnlyMode && !ingredientDebugMode && ocrTextStableCount < 1) {
+			ocrTextStableCount += 1;
+			updateGuidance('Tekst gezien. Houd stil, ik maak nu een foto voor de scan.');
+			return;
+		}
 
 		ocrBusy = true;
 		ocrProgress = 0;
-		status = 'Labeltekst wordt gelezen.';
+		status = ocrOnlyMode ? 'Foto wordt gemaakt en gelezen.' : 'Labeltekst wordt gelezen.';
 
 		try {
-			const result = await worker.recognize(canvas);
-			extractedText = normalizeWhitespace(result.data.text);
-			const confidence = Math.round(result.data.confidence || 0);
+			const capturedCanvases = ocrOnlyMode ? await captureIngredientPhotoSet() : [cloneCanvas(canvas)];
+			if (ingredientDebugMode) debugCaptureCount += 1;
+			const result =
+				ocrOnlyMode && Capacitor.isNativePlatform()
+					? await recognizeWithNativeOcr(capturedCanvases)
+					: await recognizeWithTesseract(capturedCanvases);
+			extractedText = normalizeWhitespace(result.text);
+			ocrRawText = result.text || '';
+			ocrEngine = result.engine || '';
+			const confidence = Math.round(result.confidence || 0);
 			ocrConfidence = confidence;
 
-			if (extractedText.length < 20 || confidence < 35) {
+			const minimumTextLength = ingredientDebugMode ? 1 : ocrOnlyMode ? 12 : 20;
+			const minimumConfidence = ingredientDebugMode ? 0 : ocrOnlyMode ? 28 : 35;
+
+			if (extractedText.length < minimumTextLength || confidence < minimumConfidence) {
 				ocrLastCandidate = '';
 				ocrConsistentCount = 0;
 				updateGuidance(
-					'Tekst is zichtbaar maar nog niet leesbaar. Houd stil en richt het label recht op de camera.'
+					ocrOnlyMode
+						? 'Tekst is nog niet scherp genoeg. Houd stil, vul het midden met de ingrediëntenlijst en kantel tegen glans.'
+						: 'Tekst is zichtbaar maar nog niet leesbaar. Houd stil en richt het label recht op de camera.'
 				);
 				return;
 			}
 
-			// Require 2 consistent OCR reads to prevent false triggers from background text
-			if (textsAreSimilar(extractedText, ocrLastCandidate)) {
-				ocrConsistentCount++;
-			} else {
-				ocrLastCandidate = extractedText;
-				ocrConsistentCount = 1;
-				updateGuidance('Tekst gevonden, nog even valideren…');
-				return;
-			}
+			if (!ocrOnlyMode) {
+				// Require 2 consistent OCR reads to prevent false triggers from background text.
+				if (textsAreSimilar(extractedText, ocrLastCandidate)) {
+					ocrConsistentCount++;
+				} else {
+					ocrLastCandidate = extractedText;
+					ocrConsistentCount = 1;
+					updateGuidance('Tekst gevonden. Houd de telefoon nog even stil.');
+					return;
+				}
 
-			if (ocrConsistentCount < 2) {
-				return;
+				if (ocrConsistentCount < 2) {
+					return;
+				}
 			}
 
 			ocrLastCandidate = '';
 			ocrConsistentCount = 0;
 
+			if (!productName || ingredientDebugMode) productName = 'Ingredientenscan';
+			productIngredients = extractedText;
+			productStatus = extractedText
+				? `Ingredienten gelezen met ${ocrEngine || 'OCR'}.`
+				: 'Geen ingrediententekst gelezen.';
 			checkTextForAllergens(extractedText, 'de gelezen labeltekst', confidence);
+			if (ingredientDebugMode) {
+				debugResultVisible = true;
+				debugResumeMode = 'ingredient';
+				status = `Debugfoto ${debugCaptureCount}: ${extractedText ? 'tekst gelezen' : 'geen tekst'}.`;
+				guidance = status;
+				return;
+			}
+			debugResultVisible = ingredientDebugMode;
 			ocrOnlyMode = false;
 			canScanIngredients = false;
+			ingredientDebugMode = false;
 			stopScanning();
 			mode = 'result';
 		} catch (error) {
@@ -947,6 +1020,214 @@
 		context.drawImage(video, 0, 0, width, height);
 
 		return context;
+	}
+
+	async function captureIngredientPhotoSet() {
+		const frames = [];
+		const frameCount = ingredientDebugMode ? 1 : 3;
+		for (let index = 0; index < frameCount; index += 1) {
+			const context = drawCameraFrame(1280);
+			if (context) frames.push(cloneCanvas(canvas));
+			if (index < frameCount - 1) await sleep(180);
+		}
+
+		if (frames[0]) {
+			ocrSnapshot = frames[0].toDataURL('image/jpeg', 0.86);
+		}
+
+		return frames.length ? frames : [cloneCanvas(canvas)];
+	}
+
+	function cloneCanvas(sourceCanvas) {
+		const copy = document.createElement('canvas');
+		copy.width = sourceCanvas.width;
+		copy.height = sourceCanvas.height;
+		copy.getContext('2d').drawImage(sourceCanvas, 0, 0);
+		return copy;
+	}
+
+	function sleep(ms) {
+		return new Promise((resolve) => window.setTimeout(resolve, ms));
+	}
+
+	async function recognizeWithNativeOcr(sourceCanvases) {
+		try {
+			const images = prepareNativeOcrImages(sourceCanvases);
+			const results = [];
+
+			for (const image of images) {
+				const nativeResult = await Ocr.process({ image });
+				results.push(...(nativeResult.results || []));
+			}
+
+			const text = normalizeWhitespace(results.map((result) => result.text).join(' '));
+			const confidence = normalizeNativeConfidence(results);
+			if (!text) throw new Error('Native OCR vond geen tekst.');
+
+			return { text, confidence, engine: 'mlkit' };
+		} catch (error) {
+			console.info('Native OCR niet beschikbaar of mislukt, val terug op Tesseract.', error);
+			return recognizeWithTesseract(sourceCanvases);
+		}
+	}
+
+	async function recognizeWithTesseract(sourceCanvases) {
+		const ocrCanvas = prepareOcrCanvas(sourceCanvases, { stackSlices: ocrOnlyMode });
+		const result = await worker.recognize(ocrCanvas);
+		return {
+			text: result.data.text,
+			confidence: result.data.confidence || 0,
+			engine: 'tesseract'
+		};
+	}
+
+	function prepareNativeOcrImages(sourceCanvases) {
+		const canvases = Array.isArray(sourceCanvases) ? sourceCanvases : [sourceCanvases];
+		const images = [];
+
+		for (const source of canvases.filter((item) => item?.width && item?.height).slice(0, 3)) {
+			const region = cropCanvas(source, { x: 0.05, y: 0.12, width: 0.9, height: 0.76 });
+			images.push(region.toDataURL('image/jpeg', 0.9));
+
+			const strips = [
+				{ x: 0, y: 0, width: 0.58, height: 1 },
+				{ x: 0.21, y: 0, width: 0.58, height: 1 },
+				{ x: 0.42, y: 0, width: 0.58, height: 1 }
+			];
+			for (const strip of strips) {
+				images.push(cropCanvas(region, strip).toDataURL('image/jpeg', 0.9));
+			}
+		}
+
+		return images;
+	}
+
+	function cropCanvas(sourceCanvas, region) {
+		const output = document.createElement('canvas');
+		const sourceX = Math.round(sourceCanvas.width * region.x);
+		const sourceY = Math.round(sourceCanvas.height * region.y);
+		const sourceWidth = Math.round(sourceCanvas.width * region.width);
+		const sourceHeight = Math.round(sourceCanvas.height * region.height);
+		output.width = Math.max(1, sourceWidth);
+		output.height = Math.max(1, sourceHeight);
+		output.getContext('2d').drawImage(
+			sourceCanvas,
+			sourceX,
+			sourceY,
+			sourceWidth,
+			sourceHeight,
+			0,
+			0,
+			output.width,
+			output.height
+		);
+		return output;
+	}
+
+	function normalizeNativeConfidence(results) {
+		const scores = results
+			.map((result) => Number(result.confidence))
+			.filter((value) => Number.isFinite(value) && value > 0)
+			.map((value) => (value <= 1 ? value * 100 : value));
+
+		if (!scores.length) return 80;
+		return Math.max(...scores);
+	}
+
+	function prepareOcrCanvas(sourceCanvases, { stackSlices = false } = {}) {
+		const canvases = Array.isArray(sourceCanvases) ? sourceCanvases : [sourceCanvases];
+		const validCanvases = canvases.filter((item) => item?.width && item?.height);
+		const sourceCanvas = validCanvases[0];
+		if (!sourceCanvas) return canvas;
+
+		const output = document.createElement('canvas');
+		const sourceWidth = sourceCanvas.width;
+		const sourceHeight = sourceCanvas.height;
+		const targetWidth = stackSlices ? 1500 : 1300;
+		const region = stackSlices
+			? { x: 0.05, y: 0.12, width: 0.9, height: 0.76 }
+			: { x: 0, y: 0, width: 1, height: 1 };
+		const regionWidth = Math.round(sourceWidth * region.width);
+		const regionHeight = Math.round(sourceHeight * region.height);
+		const baseHeight = Math.round((regionHeight / regionWidth) * targetWidth);
+		const gap = stackSlices ? 28 : 0;
+		const slices = stackSlices
+			? [
+					{ x: 0.0, width: 1 },
+					{ x: 0.0, width: 0.58 },
+					{ x: 0.21, width: 0.58 },
+					{ x: 0.42, width: 0.58 }
+				]
+			: [{ x: 0, width: 1 }];
+		const rows = validCanvases.flatMap((source, photoIndex) =>
+			slices.map((slice, sliceIndex) => ({ source, photoIndex, slice, sliceIndex }))
+		);
+
+		output.width = targetWidth;
+		output.height = rows.length * baseHeight + Math.max(0, rows.length - 1) * gap;
+
+		const context = output.getContext('2d', { willReadFrequently: true });
+		context.fillStyle = '#ffffff';
+		context.fillRect(0, 0, output.width, output.height);
+
+		rows.forEach(({ source, slice }, index) => {
+			const cropX = Math.round(source.width * region.x);
+			const cropY = Math.round(source.height * region.y);
+			const cropWidth = Math.round(source.width * region.width);
+			const cropHeight = Math.round(source.height * region.height);
+			const sourceX = cropX + Math.round(cropWidth * slice.x);
+			const sourceSliceWidth = Math.min(
+				source.width - sourceX,
+				Math.round(cropWidth * slice.width)
+			);
+			const targetY = index * (baseHeight + gap);
+			context.drawImage(
+				source,
+				sourceX,
+				cropY,
+				sourceSliceWidth,
+				cropHeight,
+				0,
+				targetY,
+				targetWidth,
+				baseHeight
+			);
+			enhanceOcrRegion(context, 0, targetY, targetWidth, baseHeight);
+		});
+
+		return output;
+	}
+
+	function enhanceOcrRegion(context, x, y, width, height) {
+		const image = context.getImageData(x, y, width, height);
+		const data = image.data;
+		let sum = 0;
+		let sumSquares = 0;
+
+		for (let i = 0; i < data.length; i += 4) {
+			const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+			sum += gray;
+			sumSquares += gray * gray;
+		}
+
+		const pixels = data.length / 4;
+		const mean = sum / pixels;
+		const variance = Math.max(0, sumSquares / pixels - mean * mean);
+		const contrast = Math.sqrt(variance);
+		const gain = Math.min(2.2, Math.max(1.25, 72 / Math.max(contrast, 1)));
+		const threshold = mean < 130 ? 142 : 158;
+
+		for (let i = 0; i < data.length; i += 4) {
+			const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+			const boosted = Math.max(0, Math.min(255, (gray - mean) * gain + 128));
+			const value = boosted < threshold ? 0 : 255;
+			data[i] = value;
+			data[i + 1] = value;
+			data[i + 2] = value;
+			data[i + 3] = 255;
+		}
+
+		context.putImageData(image, x, y);
 	}
 
 	function ensureBarcodeReaders() {
@@ -1045,9 +1326,27 @@
 	async function lockBarcode(result, sourceCanvas, source) {
 		barcodeFrame = result.frame;
 		barcodeSnapshot = sourceCanvas.toDataURL('image/jpeg', 0.85);
-		barcodeLocked = true;
 		status = 'Barcode gevonden. Scanner gestopt en beeld vastgelegd.';
 		guidance = status;
+		if (barcodeDebugMode) {
+			const now = Date.now();
+			if (now - lastDebugBarcodeAt < 500) return true;
+			lastDebugBarcodeAt = now;
+			detectedBarcode = result.barcode;
+			manualBarcode = result.barcode;
+			barcodeStatus = `Debug barcode gevonden via ${source}: ${result.barcode}`;
+			productName = 'Debug barcodescan';
+			productMeta = '';
+			productIngredients = '';
+			productStatus = barcodeStatus;
+			debugResultVisible = true;
+			debugResumeMode = 'barcode';
+			status = barcodeStatus;
+			guidance = barcodeStatus;
+			speak(barcodeStatus);
+			return true;
+		}
+		barcodeLocked = true;
 		stopScanning();
 		await setBarcode(result.barcode, source);
 		return true;
@@ -1230,6 +1529,7 @@
 
 		detectedBarcode = barcode;
 		manualBarcode = barcode;
+		debugResumeMode = '';
 		barcodeStatus = `Barcode ${barcode} gevonden via ${source}. Deze blijft zichtbaar in de output.`;
 		speak(barcodeStatus);
 		await lookupProduct(barcode);
@@ -1290,6 +1590,22 @@
 		}
 		ocrOnlyMode = true;
 		ocrConfidence = 0;
+		barcodeFrame = null;
+		barcodeLocked = false;
+		barcodeStatus = '';
+		ocrLastCandidate = '';
+		ocrConsistentCount = 0;
+		ocrTextStableCount = 0;
+		ocrSnapshot = '';
+		ocrEngine = '';
+		ocrRawText = '';
+		debugResultVisible = false;
+		barcodeDebugMode = false;
+		debugResumeMode = '';
+		debugCaptureCount = 0;
+		lastDebugBarcodeAt = 0;
+		lastVisibleGuidanceAt = 0;
+		lastGuidanceAt = 0;
 		try {
 			mode = 'scanning';
 			await tick();
@@ -1334,8 +1650,28 @@
 		}
 
 		const product = data.product;
-		const ingredientsText =
-			product.ingredients_text_nl || product.ingredients_text || product.ingredients_text_en || '';
+		const productNameText = firstTextValue([
+			product.product_name_nl,
+			product.product_name,
+			product.product_name_en,
+			product.product_name_fr,
+			product.product_name_de,
+			product.abbreviated_product_name,
+			product.generic_name_nl,
+			product.generic_name,
+			product.generic_name_en,
+			product.brands
+		]);
+		const ingredientsText = firstTextValue([
+			product.ingredients_text_nl,
+			product.ingredients_text,
+			product.ingredients_text_en,
+			product.ingredients_text_fr,
+			product.ingredients_text_de,
+			product.ingredients_text_with_allergens_nl,
+			product.ingredients_text_with_allergens,
+			product.ingredients_text_with_allergens_en
+		]);
 		const allergenText = [
 			product.allergens,
 			product.allergens_from_ingredients,
@@ -1346,10 +1682,7 @@
 			.filter(Boolean)
 			.join(' ');
 		const matchText = [
-			product.product_name_nl,
-			product.product_name,
-			product.generic_name_nl,
-			product.generic_name,
+			productNameText,
 			ingredientsText,
 			allergenText
 		]
@@ -1359,12 +1692,7 @@
 		return {
 			barcode,
 			found: true,
-			name:
-				product.product_name_nl ||
-				product.product_name ||
-				product.generic_name_nl ||
-				product.generic_name ||
-				'Naam onbekend',
+			name: productNameText || `Product ${barcode}`,
 			brand: product.brands || '',
 			quantity: product.quantity || '',
 			ingredientsText,
@@ -1372,6 +1700,12 @@
 			matchText,
 			source: 'Open Food Facts'
 		};
+	}
+
+	function firstTextValue(values) {
+		return values
+			.map((value) => String(value || '').trim())
+			.find((value) => value && value.toLowerCase() !== 'unknown') || '';
 	}
 
 	function checkTextForAllergens(text, sourceLabel, confidence = 100) {
@@ -1404,6 +1738,17 @@
 		canScanIngredients = false;
 		ocrLastCandidate = '';
 		ocrConsistentCount = 0;
+		ocrTextStableCount = 0;
+		ocrSnapshot = '';
+		ingredientDebugMode = false;
+		barcodeDebugMode = false;
+		debugResultVisible = false;
+		ocrEngine = '';
+		ocrRawText = '';
+		debugCaptureCount = 0;
+		lastDebugBarcodeAt = 0;
+		lastVisibleGuidanceAt = 0;
+		lastGuidanceAt = 0;
 		barcodeSnapshot = '';
 		barcodeFrame = null;
 		productName = '';
@@ -1435,12 +1780,98 @@
 	}
 
 	function updateGuidance(message) {
-		guidance = message;
 		const now = Date.now();
-		if (message !== lastSpoken && now - lastGuidanceAt > 3500) {
+		const visualDelay = ocrOnlyMode ? 5500 : 3500;
+		const speechDelay = ocrOnlyMode ? 8500 : 5000;
+
+		if (message !== guidance && now - lastVisibleGuidanceAt > visualDelay) {
+			guidance = message;
+			lastVisibleGuidanceAt = now;
+		}
+
+		if (message !== lastSpoken && now - lastGuidanceAt > speechDelay) {
 			lastGuidanceAt = now;
 			speak(message);
 		}
+	}
+
+	async function startIngredientDebugScan() {
+		if (!selectedAllergens.length) {
+			selectedAllergens = allergens.map((allergen) => allergen.id);
+			await saveProfile();
+		}
+
+		ingredientDebugMode = true;
+		debugResultVisible = true;
+		debugResumeMode = 'ingredient';
+		debugCaptureCount = 0;
+		productName = 'Debug ingredientenscan';
+		productMeta = '';
+		productIngredients = '';
+		productStatus = 'Debugscan gestart.';
+		menuOpen = false;
+		menuView = 'main';
+		await startIngredientsScan();
+		ingredientDebugMode = true;
+		debugResultVisible = true;
+		debugResumeMode = 'ingredient';
+	}
+
+	async function startBarcodeDebugScan() {
+		barcodeDebugMode = true;
+		debugResultVisible = false;
+		debugResumeMode = 'barcode';
+		debugCaptureCount = 0;
+		lastDebugBarcodeAt = 0;
+		ingredientDebugMode = false;
+		ocrOnlyMode = false;
+		ocrEngine = '';
+		ocrRawText = '';
+		ocrSnapshot = '';
+		productName = 'Debug barcodescan';
+		productMeta = '';
+		productIngredients = '';
+		productStatus = 'Debug barcodecamera gestart.';
+		menuOpen = false;
+		menuView = 'main';
+
+		try {
+			mode = 'scanning';
+			resetScanOutput();
+			barcodeDebugMode = true;
+			debugResumeMode = 'barcode';
+			productName = 'Debug barcodescan';
+			await tick();
+			await startCameraSession('Debug barcodecamera klaar. Richt op de barcode.');
+		} catch (error) {
+			barcodeDebugMode = false;
+			cameraLoading = false;
+			status = 'Cameratoegang mislukt. Geef toestemming voor de camera en probeer opnieuw.';
+			guidance = status;
+			speak(status);
+			console.error(error);
+		}
+	}
+
+	async function scanAgain() {
+		if (debugResumeMode === 'ingredient') {
+			await startIngredientDebugScan();
+			return;
+		}
+
+		if (debugResumeMode === 'barcode') {
+			await startBarcodeDebugScan();
+			return;
+		}
+
+		await startCamera();
+	}
+
+	async function forceIngredientPhoto() {
+		if (!ocrOnlyMode || !cameraReady || ocrBusy) return;
+		ingredientDebugMode = true;
+		ocrTextStableCount = 999;
+		await analyzeTextFrame(true);
 	}
 
 	function speak(message) {
@@ -1640,6 +2071,41 @@
 					title={speechEnabled ? '' : 'Zet spraak aan om te testen'}
 					on:click={() => speak('Dit is een spraaktest.')}>Test spraak</button
 				>
+				<section class="grid gap-3 border border-current/30 p-4">
+					<h3 class="text-lg font-bold">Debug</h3>
+					<p class="text-sm opacity-80">
+						Open testcamera's en toon daarna alleen bij debugscans de ruwe uitvoer.
+					</p>
+					<label class="flex items-center gap-3 font-semibold">
+						<input bind:checked={debugAutoCapture} type="checkbox" />
+						<span>Ingredienten blijven fotograferen</span>
+					</label>
+					<label class="grid gap-2 font-semibold" for="debug-capture-interval">
+						<span>Interval tussen foto's: {debugCaptureInterval} ms</span>
+						<input
+							id="debug-capture-interval"
+							bind:value={debugCaptureInterval}
+							min="150"
+							max="3000"
+							step="50"
+							type="range"
+						/>
+					</label>
+					<button
+						class="bg-yellow-300 px-4 py-3 font-bold text-black"
+						type="button"
+						on:click={startIngredientDebugScan}
+					>
+						Debug ingredientenscanner
+					</button>
+					<button
+						class="bg-blue-500 px-4 py-3 font-bold text-white"
+						type="button"
+						on:click={startBarcodeDebugScan}
+					>
+						Debug barcodescanner
+					</button>
+				</section>
 				<div class="mt-auto">
 					<button
 						class="w-full border border-current px-4 py-3 text-left font-bold"
@@ -1704,22 +2170,52 @@
 					<p class="mt-4 text-lg font-bold">Camera wordt geladen...</p>
 				</div>
 			{/if}
+			{#if ocrOnlyMode && ocrSnapshot}
+				<div class="fixed right-3 top-24 z-40 w-28 border-2 border-yellow-300 bg-black p-1 text-xs font-bold text-white">
+					<img class="aspect-[3/4] w-full object-cover" src={ocrSnapshot} alt="Foto voor OCR" />
+					<p class="mt-1 text-center">Foto gemaakt</p>
+				</div>
+			{/if}
 			<div class="fixed left-16 right-3 top-3 z-40 flex items-center justify-between gap-2">
 				<button
 					class="bg-black/75 px-4 py-3 font-bold text-white"
 					type="button"
 					on:click={returnToSelection}>Terug</button
 				>
-				<button
-					class="bg-black/75 px-4 py-3 font-bold text-white"
-					type="button"
-					on:click={switchCamera}
-				>
-					{cameraFacingMode === 'environment' ? 'Achterkant' : 'Voorkant'}
-				</button>
+				<div class="flex gap-2">
+					{#if ingredientDebugMode}
+						<button
+							class="bg-yellow-300 px-4 py-3 font-bold text-black disabled:opacity-50"
+							type="button"
+							disabled={ocrBusy}
+							on:click={forceIngredientPhoto}
+						>
+							Maak foto
+						</button>
+					{/if}
+					<button
+						class="bg-black/75 px-4 py-3 font-bold text-white"
+						type="button"
+						on:click={switchCamera}
+					>
+						{cameraFacingMode === 'environment' ? 'Achterkant' : 'Voorkant'}
+					</button>
+				</div>
 			</div>
-			<div class="pointer-events-none absolute inset-8 border-4 border-blue-400"></div>
-			{#if barcodeFrame}
+			{#if ocrOnlyMode}
+				<div class="pointer-events-none absolute inset-x-8 top-28 bottom-36 border-4 border-yellow-300/80">
+					<div class="absolute -top-9 left-0 bg-yellow-300 px-2 py-1 text-sm font-bold text-black">
+						Ingrediëntenlijst
+					</div>
+				</div>
+			{:else}
+				<div class="pointer-events-none absolute inset-x-10 top-32 bottom-40 border-4 border-blue-400">
+					<div class="absolute -top-9 left-0 bg-blue-500 px-2 py-1 text-sm font-bold text-white">
+						Barcode
+					</div>
+				</div>
+			{/if}
+			{#if barcodeFrame && !ocrOnlyMode}
 				<div
 					class="pointer-events-none absolute border-4 border-blue-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.18)]"
 					style:left={barcodeFrame.left}
@@ -1735,7 +2231,28 @@
 			{/if}
 			<div class="fixed bottom-0 left-0 right-0 z-40 bg-black/85 p-4 text-white" aria-live="polite">
 				<p class="font-bold">{guidance}</p>
-				<p class="mt-2 text-sm">{barcodeStatus}</p>
+				{#if ocrOnlyMode}
+					<p class="mt-2 text-sm">
+						Houd alleen de ingrediëntenlijst in het vak. Draai de verpakking langzaam als deze rond is.
+						OCR {ocrProgress}%{ocrConfidence ? ` · betrouwbaarheid ${ocrConfidence}%` : ''}
+					</p>
+					{#if ingredientDebugMode}
+						<div class="mt-3 max-h-36 overflow-auto border border-yellow-300/50 p-2 text-xs">
+							<p class="font-bold">
+								Debug: {debugCaptureCount} foto{debugCaptureCount === 1 ? '' : "'s"} · {ocrEngine || 'nog geen OCR'} · {ocrConfidence || 0}%
+							</p>
+							<p class="mt-1 whitespace-pre-wrap">{ocrRawText || 'Nog geen tekst gelezen.'}</p>
+						</div>
+					{/if}
+				{:else}
+					<p class="mt-2 text-sm">{barcodeStatus}</p>
+					{#if barcodeDebugMode}
+						<div class="mt-3 max-h-28 overflow-auto border border-blue-300/50 p-2 text-xs">
+							<p class="font-bold">Debug barcode: {detectedBarcode || 'nog niets gezien'}</p>
+							<p>{barcodeStatus}</p>
+						</div>
+					{/if}
+				{/if}
 			</div>
 		</main>
 	{:else if mode === 'result'}
@@ -1822,6 +2339,32 @@
 					</p>
 				</div>
 			</details>
+			{#if debugResultVisible}
+				<details class="border border-current/30" open>
+					<summary class="cursor-pointer p-4 text-xl font-bold">Debug uitvoer</summary>
+					<div class="grid gap-3 px-4 pb-4">
+						<p><strong>Barcode:</strong> {detectedBarcode || 'Geen barcode'}</p>
+						<p><strong>Barcode status:</strong> {barcodeStatus}</p>
+						<p><strong>OCR-engine:</strong> {ocrEngine || 'Geen OCR-run'}</p>
+						<p><strong>OCR-betrouwbaarheid:</strong> {ocrConfidence || 0}%</p>
+						{#if barcodeSnapshot}
+							<img
+								class="max-h-64 w-full object-contain"
+								src={barcodeSnapshot}
+								alt="Laatst vastgelegde barcodefoto"
+							/>
+						{/if}
+						{#if ocrSnapshot}
+							<img
+								class="max-h-64 w-full object-contain"
+								src={ocrSnapshot}
+								alt="Laatst vastgelegde OCR-foto"
+							/>
+						{/if}
+						<pre class="max-h-72 overflow-auto whitespace-pre-wrap border border-current/20 p-3 text-sm">{ocrRawText || extractedText || 'Geen OCR-tekst beschikbaar.'}</pre>
+					</div>
+				</details>
+			{/if}
 			<div
 				class="fixed bottom-0 left-0 right-0 z-40 border-t border-current/20 p-3"
 				class:bg-black={highContrast}
@@ -1830,7 +2373,7 @@
 				<button
 					class="w-full bg-blue-500 px-4 py-4 font-bold text-white"
 					type="button"
-					on:click={startCamera}>Scan opnieuw</button
+					on:click={scanAgain}>Scan opnieuw</button
 				>
 			</div>
 		</main>

@@ -147,11 +147,28 @@ export async function getProductByBarcode(req, res) {
     }
 
     const product = data.product;
-    const ingredientsText =
-      product.ingredients_text_nl ||
-      product.ingredients_text ||
-      product.ingredients_text_en ||
-      '';
+    const productNameText = firstTextValue([
+      product.product_name_nl,
+      product.product_name,
+      product.product_name_en,
+      product.product_name_fr,
+      product.product_name_de,
+      product.abbreviated_product_name,
+      product.generic_name_nl,
+      product.generic_name,
+      product.generic_name_en,
+      product.brands
+    ]);
+    const ingredientsText = firstTextValue([
+      product.ingredients_text_nl,
+      product.ingredients_text,
+      product.ingredients_text_en,
+      product.ingredients_text_fr,
+      product.ingredients_text_de,
+      product.ingredients_text_with_allergens_nl,
+      product.ingredients_text_with_allergens,
+      product.ingredients_text_with_allergens_en
+    ]);
     const allergenText = [
       product.allergens,
       product.allergens_from_ingredients,
@@ -162,10 +179,7 @@ export async function getProductByBarcode(req, res) {
       .filter(Boolean)
       .join(' ');
     const matchText = [
-      product.product_name_nl,
-      product.product_name,
-      product.generic_name_nl,
-      product.generic_name,
+      productNameText,
       ingredientsText,
       allergenText
     ]
@@ -175,12 +189,7 @@ export async function getProductByBarcode(req, res) {
     res.status(200).json({
       barcode,
       found: true,
-      name:
-        product.product_name_nl ||
-        product.product_name ||
-        product.generic_name_nl ||
-        product.generic_name ||
-        'Naam onbekend',
+      name: productNameText || `Product ${barcode}`,
       brand: product.brands || '',
       quantity: product.quantity || '',
       ingredientsText,
@@ -196,6 +205,12 @@ export async function getProductByBarcode(req, res) {
       detail: error.message
     });
   }
+}
+
+function firstTextValue(values) {
+  return values
+    .map((value) => String(value || '').trim())
+    .find((value) => value && value.toLowerCase() !== 'unknown') || '';
 }
 
 function findMatches(text, selectedAllergens) {
