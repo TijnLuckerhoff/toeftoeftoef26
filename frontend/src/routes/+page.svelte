@@ -1,9 +1,12 @@
-﻿<script>
+<script>
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { BrowserMultiFormatReader } from '@zxing/browser';
 	import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 	import { createWorker } from 'tesseract.js';
 	import { findAllergenMatches, normalizeWhitespace } from '$lib/allergenMatch.js';
+	import creditsMarkdown from '$lib/credits.md?raw';
+	import { Capacitor } from '@capacitor/core';
+	import { TextToSpeech } from '@capacitor-community/text-to-speech';
 
 	const STORAGE_KEY = 'allergies-detect-profile';
 
@@ -83,13 +86,51 @@
 		{
 			id: 'milk',
 			name: 'Melk / lactose',
-			terms: ['milk', 'melk', 'lactose', 'wei', 'whey', 'casein', 'kaas', 'cream', 'butter']
+			aliases: ['zuivel', 'kaas', 'boter', 'room', 'yoghurt', 'kwark', 'lactose', 'melkpoeder'],
+			terms: [
+				'milk',
+				'melk',
+				'lactose',
+				'wei',
+				'whey',
+				'casein',
+				'caseinate',
+				'kaas',
+				'cream',
+				'butter',
+				'karnemelk',
+				'botermelk',
+				'slagroom'
+			]
 		},
-		{ id: 'egg', name: 'Ei', terms: ['egg', 'ei', 'eggs', 'albumen', 'albumin', 'eigeel', 'eier'] },
-		{ id: 'peanut', name: 'Pinda', terms: ['peanut', 'pinda', 'arachis', 'groundnut', 'satay'] },
+		{
+			id: 'egg',
+			name: 'Ei',
+			aliases: ['eieren', 'eigeel', 'eiwit', 'mayonaise'],
+			terms: [
+				'egg',
+				'ei',
+				'eggs',
+				'eieren',
+				'eidooier',
+				'eiwit',
+				'eigeel',
+				'eipoeder',
+				'albumen',
+				'albumin',
+				'eier'
+			]
+		},
+		{
+			id: 'peanut',
+			name: 'Pinda',
+			aliases: ['noten', 'noot', 'pindanoot', 'pindanoten', 'pindakaas'],
+			terms: ['peanut', 'pinda', 'arachis', 'groundnut', 'satay']
+		},
 		{
 			id: 'tree-nut',
 			name: 'Boomnoten',
+			aliases: ['noten', 'noot', 'boomnoot', 'gemengde noten'],
 			terms: [
 				'nut',
 				'nuts',
@@ -109,16 +150,19 @@
 		{
 			id: 'soy',
 			name: 'Soja',
+			aliases: ['sojamelk', 'tofu', 'tempeh', 'edamame', 'miso'],
 			terms: ['soy', 'soya', 'soja', 'soybean', 'sojalecithine', 'lecithin']
 		},
 		{
 			id: 'wheat',
 			name: 'Tarwe',
+			aliases: ['brood', 'meel', 'pasta', 'beschuit'],
 			terms: ['wheat', 'tarwe', 'gluten', 'flour', 'bloem', 'semolina', 'spelt']
 		},
 		{
 			id: 'gluten',
 			name: 'Gluten',
+			aliases: ['graan', 'brood', 'meel', 'granen', 'bloem'],
 			terms: [
 				'gluten',
 				'tarwe',
@@ -136,6 +180,7 @@
 		{
 			id: 'fish',
 			name: 'Vis',
+			aliases: ['vissen', 'zeevis', 'visolie', 'zeevruchten', 'vissoort'],
 			terms: [
 				'fish',
 				'vis',
@@ -152,6 +197,7 @@
 		{
 			id: 'shellfish',
 			name: 'Schaaldieren',
+			aliases: ['garnalen', 'kreeft', 'krab', 'zeevruchten', 'seafood'],
 			terms: [
 				'shellfish',
 				'crustacean',
@@ -168,6 +214,7 @@
 		{
 			id: 'mollusc',
 			name: 'Weekdieren',
+			aliases: ['mosselen', 'oesters', 'inktvis', 'zeevruchten', 'seafood'],
 			terms: [
 				'mollusc',
 				'mollusk',
@@ -180,13 +227,34 @@
 				'inktvis'
 			]
 		},
-		{ id: 'sesame', name: 'Sesam', terms: ['sesame', 'sesam', 'tahini'] },
-		{ id: 'mustard', name: 'Mosterd', terms: ['mustard', 'mosterd'] },
-		{ id: 'celery', name: 'Selderij', terms: ['celery', 'selderij', 'celeriac'] },
-		{ id: 'lupin', name: 'Lupin', terms: ['lupin', 'lupine'] },
+		{
+			id: 'sesame',
+			name: 'Sesam',
+			aliases: ['sesamzaad', 'sesamolie', 'goma', 'tahini'],
+			terms: ['sesame', 'sesam', 'tahini']
+		},
+		{
+			id: 'mustard',
+			name: 'Mosterd',
+			aliases: ['mosterdzaad', 'tafelmost'],
+			terms: ['mustard', 'mosterd']
+		},
+		{
+			id: 'celery',
+			name: 'Selderij',
+			aliases: ['knolselderij', 'bleekselderij', 'selderie'],
+			terms: ['celery', 'selderij', 'celeriac']
+		},
+		{
+			id: 'lupin',
+			name: 'Lupin',
+			aliases: ['lupinezaad', 'lupinebloem', 'lupinemeel'],
+			terms: ['lupin', 'lupine']
+		},
 		{
 			id: 'sulphites',
 			name: 'Sulfiet',
+			aliases: ['zwavel', 'zwaveldioxide', 'wijn', 'e220', 'conserveringsmiddel'],
 			terms: [
 				'sulphite',
 				'sulfite',
@@ -203,18 +271,59 @@
 				'e228'
 			]
 		},
-		{ id: 'corn', name: 'Mais', terms: ['corn', 'maize', 'mais', 'cornstarch', 'maizena'] },
-		{ id: 'oat', name: 'Haver', terms: ['oat', 'oats', 'haver'] },
-		{ id: 'barley', name: 'Gerst', terms: ['barley', 'gerst', 'malt', 'mout'] },
-		{ id: 'rye', name: 'Rogge', terms: ['rye', 'rogge'] },
-		{ id: 'buckwheat', name: 'Boekweit', terms: ['buckwheat', 'boekweit'] },
-		{ id: 'kiwi', name: 'Kiwi', terms: ['kiwi'] },
-		{ id: 'banana', name: 'Banaan', terms: ['banana', 'banaan'] },
-		{ id: 'strawberry', name: 'Aardbei', terms: ['strawberry', 'aardbei'] },
-		{ id: 'tomato', name: 'Tomaat', terms: ['tomato', 'tomaat'] },
+		{
+			id: 'corn',
+			name: 'Mais',
+			aliases: ['maïs', 'popcorn', 'tortilla', 'maizena', 'zetmeel'],
+			terms: ['corn', 'maize', 'mais', 'cornstarch', 'maizena']
+		},
+		{
+			id: 'oat',
+			name: 'Haver',
+			aliases: ['havermout', 'granola', 'muesli', 'havermelk', 'graan'],
+			terms: ['oat', 'oats', 'haver']
+		},
+		{
+			id: 'barley',
+			name: 'Gerst',
+			aliases: ['mout', 'bier', 'graan', 'whisky'],
+			terms: ['barley', 'gerst', 'malt', 'mout']
+		},
+		{
+			id: 'rye',
+			name: 'Rogge',
+			aliases: ['roggebrood', 'graan', 'granen'],
+			terms: ['rye', 'rogge']
+		},
+		{
+			id: 'buckwheat',
+			name: 'Boekweit',
+			aliases: ['boekweitmeel', 'pannenkoek', 'graan'],
+			terms: ['buckwheat', 'boekweit']
+		},
+		{ id: 'kiwi', name: 'Kiwi', aliases: ['kiwifruit', 'fruit'], terms: ['kiwi'] },
+		{
+			id: 'banana',
+			name: 'Banaan',
+			aliases: ['bananen', 'fruit'],
+			terms: ['banana', 'banaan', 'bananen', 'bananenpuree', 'banaanpoeder']
+		},
+		{
+			id: 'strawberry',
+			name: 'Aardbei',
+			aliases: ['aardbeien', 'fruit', 'bessen'],
+			terms: ['strawberry', 'aardbei']
+		},
+		{
+			id: 'tomato',
+			name: 'Tomaat',
+			aliases: ['tomaten', 'ketchup', 'tomatensaus', 'groente'],
+			terms: ['tomato', 'tomaat', 'tomaten', 'tomatenpuree', 'tomatensap', 'tomatensaus']
+		},
 		{
 			id: 'cocoa',
 			name: 'Cacao',
+			aliases: ['chocola', 'chocolade', 'cacaopoeder', 'cacaoboter'],
 			terms: [
 				'cocoa',
 				'cacao',
@@ -227,37 +336,139 @@
 				'chocoladepoeder'
 			]
 		},
-		{ id: 'coconut', name: 'Kokos', terms: ['coconut', 'kokos'] },
-		{ id: 'almond', name: 'Amandel', terms: ['almond', 'amandel'] },
-		{ id: 'hazelnut', name: 'Hazelnoot', terms: ['hazelnut', 'hazelnoot'] },
-		{ id: 'walnut', name: 'Walnoot', terms: ['walnut', 'walnoot'] },
-		{ id: 'cashew', name: 'Cashew', terms: ['cashew'] },
-		{ id: 'pistachio', name: 'Pistachio', terms: ['pistachio', 'pistache'] },
-		{ id: 'pecan', name: 'Pecan', terms: ['pecan'] },
-		{ id: 'macadamia', name: 'Macadamia', terms: ['macadamia'] },
-		{ id: 'pine-nut', name: 'Pijnboompit', terms: ['pine nut', 'pijnboompit'] },
-		{ id: 'sunflower', name: 'Zonnebloempit', terms: ['sunflower', 'zonnebloem', 'zonnebloempit'] },
-		{ id: 'pumpkin', name: 'Pompoenpit', terms: ['pumpkin seed', 'pompoenpit'] },
-		{ id: 'chickpea', name: 'Kikkererwt', terms: ['chickpea', 'kikkererwt', 'hummus'] },
-		{ id: 'lentil', name: 'Linzen', terms: ['lentil', 'linzen', 'linze'] },
-		{ id: 'pea', name: 'Erwt', terms: ['pea', 'peas', 'erwt', 'erwten'] },
-		{ id: 'bean', name: 'Bonen', terms: ['bean', 'beans', 'boon', 'bonen'] },
-		{ id: 'garlic', name: 'Knoflook', terms: ['garlic', 'knoflook'] },
-		{ id: 'onion', name: 'Ui', terms: ['onion', 'ui', 'uien'] },
-		{ id: 'carrot', name: 'Wortel', terms: ['carrot', 'wortel'] },
-		{ id: 'apple', name: 'Appel', terms: ['apple', 'appel'] },
+		{
+			id: 'coconut',
+			name: 'Kokos',
+			aliases: ['kokosnoot', 'kokosmelk', 'kokosolie', 'noten', 'noot'],
+			terms: ['coconut', 'kokos']
+		},
+		{
+			id: 'almond',
+			name: 'Amandel',
+			aliases: ['amandelmelk', 'noten', 'noot'],
+			terms: ['almond', 'amandel']
+		},
+		{
+			id: 'hazelnut',
+			name: 'Hazelnoot',
+			aliases: ['noten', 'noot'],
+			terms: ['hazelnut', 'hazelnoot']
+		},
+		{ id: 'walnut', name: 'Walnoot', aliases: ['noten', 'noot'], terms: ['walnut', 'walnoot'] },
+		{ id: 'cashew', name: 'Cashew', aliases: ['cashewnoot', 'noten', 'noot'], terms: ['cashew'] },
+		{
+			id: 'pistachio',
+			name: 'Pistachio',
+			aliases: ['pistachenoot', 'noten', 'noot'],
+			terms: ['pistachio', 'pistache']
+		},
+		{ id: 'pecan', name: 'Pecan', aliases: ['pecannoot', 'noten', 'noot'], terms: ['pecan'] },
+		{
+			id: 'macadamia',
+			name: 'Macadamia',
+			aliases: ['macadamianoot', 'noten', 'noot'],
+			terms: ['macadamia']
+		},
+		{
+			id: 'pine-nut',
+			name: 'Pijnboompit',
+			aliases: ['noten', 'noot', 'dennenpit', 'pijnboomnoot'],
+			terms: ['pine nut', 'pijnboompit']
+		},
+		{
+			id: 'sunflower',
+			name: 'Zonnebloempit',
+			aliases: ['zonnebloem', 'zaad', 'pit', 'zaden'],
+			terms: ['sunflower', 'zonnebloem', 'zonnebloempit']
+		},
+		{
+			id: 'pumpkin',
+			name: 'Pompoenpit',
+			aliases: ['pompoen', 'zaad', 'pit', 'zaden'],
+			terms: ['pumpkin seed', 'pompoenpit']
+		},
+		{
+			id: 'chickpea',
+			name: 'Kikkererwt',
+			aliases: ['hummus', 'peulvrucht', 'kikkererwten', 'falafel'],
+			terms: ['chickpea', 'kikkererwt', 'hummus']
+		},
+		{
+			id: 'lentil',
+			name: 'Linzen',
+			aliases: ['linze', 'peulvrucht', 'dal', 'soep'],
+			terms: ['lentil', 'linzen', 'linze']
+		},
+		{
+			id: 'pea',
+			name: 'Erwt',
+			aliases: ['erwten', 'peulvrucht', 'doperwt', 'spliterwt'],
+			terms: ['pea', 'peas', 'erwt', 'erwten']
+		},
+		{
+			id: 'bean',
+			name: 'Bonen',
+			aliases: ['boon', 'peulvrucht', 'bruine bonen', 'kidney', 'sperzieboon'],
+			terms: ['bean', 'beans', 'boon', 'bonen']
+		},
+		{
+			id: 'garlic',
+			name: 'Knoflook',
+			aliases: ['look', 'knof', 'groente', 'knoflookpoeder'],
+			terms: ['garlic', 'knoflook']
+		},
+		{
+			id: 'onion',
+			name: 'Ui',
+			aliases: ['uien', 'sjalot', 'prei', 'bieslook', 'groente'],
+			terms: ['onion', 'ui', 'uien']
+		},
+		{
+			id: 'carrot',
+			name: 'Wortel',
+			aliases: ['wortelen', 'worteltje', 'groente', 'wortelsoep'],
+			terms: ['carrot', 'wortel']
+		},
+		{
+			id: 'apple',
+			name: 'Appel',
+			aliases: ['appels', 'fruit', 'appelmoes', 'appelsap'],
+			terms: ['apple', 'appel']
+		},
 		{
 			id: 'citrus',
 			name: 'Citrus',
+			aliases: ['mandarijn', 'clementine', 'grapefruit', 'pompelmoes'],
 			terms: ['citrus', 'orange', 'sinaasappel', 'lemon', 'citroen', 'lime', 'limoen']
 		},
-		{ id: 'mushroom', name: 'Paddenstoel', terms: ['mushroom', 'champignon', 'paddenstoel'] },
-		{ id: 'yeast', name: 'Gist', terms: ['yeast', 'gist'] },
-		{ id: 'gelatin', name: 'Gelatine', terms: ['gelatin', 'gelatine'] },
-		{ id: 'aspartame', name: 'Aspartame', terms: ['aspartame', 'aspartaam', 'e951'] },
+		{
+			id: 'mushroom',
+			name: 'Paddenstoel',
+			aliases: ['champignons', 'fungi', 'paddenstoelen', 'schimmel'],
+			terms: ['mushroom', 'champignon', 'paddenstoel']
+		},
+		{
+			id: 'yeast',
+			name: 'Gist',
+			aliases: ['gistextract', 'brood', 'bier', 'fermentatie'],
+			terms: ['yeast', 'gist']
+		},
+		{
+			id: 'gelatin',
+			name: 'Gelatine',
+			aliases: ['dierlijk', 'collageen', 'geleermiddel', 'snoep'],
+			terms: ['gelatin', 'gelatine']
+		},
+		{
+			id: 'aspartame',
+			name: 'Aspartame',
+			aliases: ['zoetmiddel', 'suikervervanger', 'e951', 'light'],
+			terms: ['aspartame', 'aspartaam', 'e951']
+		},
 		{
 			id: 'msg',
 			name: 'MSG',
+			aliases: ['smaakversterker', 'glutamaat', 'umami', 'e621', 'chinees'],
 			terms: ['msg', 'monosodium glutamate', 'mononatriumglutamaat', 'e621']
 		}
 	];
@@ -265,11 +476,13 @@
 	let allergens = defaultAllergens;
 	let selectedAllergens = [];
 	let mode = 'setup';
-	let highContrast = false;
+	let highContrast = true;
 	let largeText = false;
 	let speechEnabled = false;
 	let menuOpen = false;
+	let menuView = 'main';
 	let appScale = 100;
+	let allergenSearch = '';
 	let isOnline = true;
 	let wifiWarningSpoken = false;
 	let cameraFacingMode = 'environment';
@@ -281,6 +494,9 @@
 	let barcodeFrame = null;
 	let detectedBarcode = '';
 	let barcodeLocked = false;
+	let ocrConfidence = 0;
+	let ocrOnlyMode = false;
+	let canScanIngredients = false;
 	let barcodeSnapshot = '';
 	let productName = '';
 	let productMeta = '';
@@ -288,10 +504,13 @@
 	let productLookupBusy = false;
 	let productStatus = 'Nog geen product gevonden.';
 	let cameraReady = false;
+	let cameraLoading = false;
 	let scanning = false;
 	let ocrBusy = false;
 	let workerReady = false;
 	let ocrProgress = 0;
+	let ocrLastCandidate = '';
+	let ocrConsistentCount = 0;
 	let status = 'Stel eerst je allergieprofiel in.';
 	let guidance = 'De camera is nog niet actief.';
 	let extractedText = '';
@@ -318,17 +537,34 @@
 			allergens: category.allergenIds
 				.map((id) => allergens.find((allergen) => allergen.id === id))
 				.filter(Boolean)
+				.sort((a, b) => a.name.localeCompare(b.name, 'nl', { sensitivity: 'base' }))
+		}))
+		.filter((category) => category.allergens.length);
+
+	$: filteredCategorizedAllergens = categorizedAllergens
+		.map((category) => ({
+			...category,
+			allergens: category.allergens.filter((allergen) => {
+				const q = allergenSearch.trim().toLowerCase();
+				if (!q) return true;
+				return (
+					allergen.name.toLowerCase().includes(q) ||
+					allergen.aliases?.some((a) => a.toLowerCase().includes(q))
+				);
+			})
 		}))
 		.filter((category) => category.allergens.length);
 
 	$: appClasses = [
 		'min-h-screen',
 		'transition-colors',
-		highContrast ? 'bg-black text-white' : 'bg-slate-50 text-slate-950',
-		largeText ? 'text-xl' : 'text-base'
+		highContrast ? 'bg-black text-white' : 'bg-slate-50 text-slate-950'
 	].join(' ');
 
-	$: appStyle = `font-size: ${appScale}%;`;
+	$: if (typeof document !== 'undefined') {
+		document.documentElement.style.fontSize = `${Math.round(appScale * (largeText ? 1.25 : 1))}%`;
+	}
+	$: creditBlocks = parseCreditsMarkdown(creditsMarkdown);
 
 	$: if (!isOnline && speechEnabled && !wifiWarningSpoken) {
 		wifiWarningSpoken = true;
@@ -344,12 +580,18 @@
 		window.addEventListener('online', handleOnline);
 		window.addEventListener('offline', handleOffline);
 
+		// Pre-load TTS voices so they're available on first speak() call (esp. Android WebView).
+		if (typeof speechSynthesis !== 'undefined') {
+			speechSynthesis.getVoices();
+			speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+		}
+
 		const saved = localStorage.getItem(STORAGE_KEY);
 		if (saved) {
 			try {
 				const parsed = JSON.parse(saved);
 				selectedAllergens = parsed.selectedAllergens ?? [];
-				highContrast = parsed.highContrast ?? false;
+				highContrast = parsed.highContrast ?? true;
 				largeText = parsed.largeText ?? false;
 				speechEnabled = parsed.speechEnabled ?? false;
 				appScale = parsed.appScale ?? 100;
@@ -396,7 +638,7 @@
 
 			if (!savedProfileExists()) {
 				selectedAllergens = profile.selectedAllergens ?? [];
-				highContrast = profile.highContrast ?? false;
+				highContrast = profile.highContrast ?? true;
 				largeText = profile.largeText ?? false;
 				speechEnabled = profile.speechEnabled ?? false;
 				appScale = profile.appScale ?? 100;
@@ -465,6 +707,29 @@
 		selectedAllergens = [];
 	}
 
+	function openMenu(view = 'main') {
+		menuView = view;
+		menuOpen = true;
+	}
+
+	function toggleHighContrast() {
+		highContrast = !highContrast;
+		saveProfile();
+	}
+
+	function toggleLargeText() {
+		largeText = !largeText;
+		saveProfile();
+	}
+
+	function toggleSpeech() {
+		speechEnabled = !speechEnabled;
+		saveProfile();
+		// Speak confirmation from within this click handler (user gesture) to unlock
+		// Android WebView TTS so subsequent automatic calls also work.
+		if (speechEnabled) speak('Spraak ingeschakeld.');
+	}
+
 	async function beginScanning() {
 		if (!selectedAllergens.length) {
 			status = 'Kies minimaal een allergeen voordat je scant.';
@@ -480,6 +745,7 @@
 	async function switchCamera() {
 		cameraFacingMode = cameraFacingMode === 'environment' ? 'user' : 'environment';
 		if (scanning) {
+			cameraLoading = true;
 			await startCamera();
 		}
 	}
@@ -503,6 +769,7 @@
 			await tick();
 			await startCameraSession('Camera klaar. Richt op de barcode.');
 		} catch (error) {
+			cameraLoading = false;
 			status = 'Cameratoegang mislukt. Geef toestemming voor de camera en probeer opnieuw.';
 			guidance = status;
 			speak(status);
@@ -512,6 +779,7 @@
 
 	async function startCameraSession(readyMessage) {
 		stopScanning();
+		cameraLoading = true;
 		status = 'Camera wordt gestart.';
 		stream = await navigator.mediaDevices.getUserMedia({
 			video: {
@@ -525,6 +793,7 @@
 		video.srcObject = stream;
 		await video.play();
 		cameraReady = true;
+		cameraLoading = false;
 		scanning = true;
 		status = readyMessage;
 		guidance = readyMessage;
@@ -539,6 +808,7 @@
 	function stopScanning() {
 		scanning = false;
 		cameraReady = false;
+		cameraLoading = false;
 		if (barcodeTimer) window.clearInterval(barcodeTimer);
 		if (ocrTimer) window.clearInterval(ocrTimer);
 		if (stream) {
@@ -569,7 +839,15 @@
 	}
 
 	async function analyzeBarcodeFrame() {
-		if (!video || !canvas || !cameraReady || barcodeBusy || video.videoWidth === 0 || barcodeLocked)
+		if (
+			!video ||
+			!canvas ||
+			!cameraReady ||
+			barcodeBusy ||
+			video.videoWidth === 0 ||
+			barcodeLocked ||
+			ocrOnlyMode
+		)
 			return;
 
 		const context = drawCameraFrame(960);
@@ -588,7 +866,14 @@
 	}
 
 	async function analyzeTextFrame() {
-		if (!video || !canvas || !cameraReady || ocrBusy || video.videoWidth === 0 || barcodeLocked)
+		if (
+			!video ||
+			!canvas ||
+			!cameraReady ||
+			ocrBusy ||
+			video.videoWidth === 0 ||
+			(barcodeLocked && !ocrOnlyMode)
+		)
 			return;
 
 		const context = drawCameraFrame(960);
@@ -609,15 +894,37 @@
 			const result = await worker.recognize(canvas);
 			extractedText = normalizeWhitespace(result.data.text);
 			const confidence = Math.round(result.data.confidence || 0);
+			ocrConfidence = confidence;
 
 			if (extractedText.length < 20 || confidence < 35) {
+				ocrLastCandidate = '';
+				ocrConsistentCount = 0;
 				updateGuidance(
 					'Tekst is zichtbaar maar nog niet leesbaar. Houd stil en richt het label recht op de camera.'
 				);
 				return;
 			}
 
-			checkTextForAllergens(extractedText, 'de gelezen labeltekst');
+			// Require 2 consistent OCR reads to prevent false triggers from background text
+			if (textsAreSimilar(extractedText, ocrLastCandidate)) {
+				ocrConsistentCount++;
+			} else {
+				ocrLastCandidate = extractedText;
+				ocrConsistentCount = 1;
+				updateGuidance('Tekst gevonden, nog even valideren…');
+				return;
+			}
+
+			if (ocrConsistentCount < 2) {
+				return;
+			}
+
+			ocrLastCandidate = '';
+			ocrConsistentCount = 0;
+
+			checkTextForAllergens(extractedText, 'de gelezen labeltekst', confidence);
+			ocrOnlyMode = false;
+			canScanIngredients = false;
 			stopScanning();
 			mode = 'result';
 		} catch (error) {
@@ -971,6 +1278,29 @@
 			console.info(error);
 		} finally {
 			productLookupBusy = false;
+			canScanIngredients = !productIngredients;
+		}
+	}
+
+	async function startIngredientsScan() {
+		if (!selectedAllergens.length) {
+			status = 'Kies minimaal een allergeen voordat je scant.';
+			speak(status);
+			return;
+		}
+		ocrOnlyMode = true;
+		ocrConfidence = 0;
+		try {
+			mode = 'scanning';
+			await tick();
+			await startCameraSession('Camera klaar. Richt op de ingrediëntenlijst van de verpakking.');
+		} catch (error) {
+			ocrOnlyMode = false;
+			cameraLoading = false;
+			status = 'Cameratoegang mislukt. Geef toestemming voor de camera en probeer opnieuw.';
+			guidance = status;
+			speak(status);
+			console.error(error);
 		}
 	}
 
@@ -1044,7 +1374,7 @@
 		};
 	}
 
-	function checkTextForAllergens(text, sourceLabel) {
+	function checkTextForAllergens(text, sourceLabel, confidence = 100) {
 		const matches = findAllergenMatches(text, selectedAllergens, allergens);
 		matchedAllergens = matches;
 
@@ -1054,18 +1384,26 @@
 			status = hasDanger
 				? `Waarschuwing. Mogelijk allergeen gevonden in ${sourceLabel}: ${names}.`
 				: `Let op. Mogelijke aanwijzing gevonden in ${sourceLabel}: ${names}. Controleer het etiket extra goed.`;
-			guidance = status;
 		} else {
 			status = `Geen geselecteerde allergenen gevonden in ${sourceLabel}.`;
-			guidance = status;
 		}
 
+		if (confidence > 0 && confidence < 65) {
+			status += ` Let op: lage scanbetrouwbaarheid (${confidence}%). Controleer het etiket ook visueel.`;
+		}
+
+		guidance = status;
 		speak(status);
 	}
 
 	function resetScanOutput() {
 		detectedBarcode = '';
 		barcodeLocked = false;
+		ocrConfidence = 0;
+		ocrOnlyMode = false;
+		canScanIngredients = false;
+		ocrLastCandidate = '';
+		ocrConsistentCount = 0;
 		barcodeSnapshot = '';
 		barcodeFrame = null;
 		productName = '';
@@ -1079,6 +1417,23 @@
 		matchedAllergens = [];
 	}
 
+	function textsAreSimilar(a, b) {
+		if (!a || !b) return false;
+		const wordsA = new Set(
+			a
+				.toLowerCase()
+				.split(/\s+/)
+				.filter((w) => w.length > 3)
+		);
+		const wordsB = b
+			.toLowerCase()
+			.split(/\s+/)
+			.filter((w) => w.length > 3);
+		if (!wordsA.size || !wordsB.length) return false;
+		const shared = wordsB.filter((w) => wordsA.has(w)).length;
+		return shared / Math.max(wordsA.size, wordsB.length) >= 0.35;
+	}
+
 	function updateGuidance(message) {
 		guidance = message;
 		const now = Date.now();
@@ -1090,18 +1445,61 @@
 
 	function speak(message) {
 		lastSpoken = message;
-		if (!speechEnabled || typeof speechSynthesis === 'undefined') return;
-		speechSynthesis.cancel();
-		const utterance = new SpeechSynthesisUtterance(message);
-		utterance.lang = 'nl-NL';
-		utterance.volume = 1;
-		utterance.rate = 0.95;
-		// Small delay so cancel() fully flushes before the new utterance queues.
-		// Also resumes in case synthesis was paused (e.g. screen lock on mobile).
-		setTimeout(() => {
-			if (speechSynthesis.paused) speechSynthesis.resume();
-			speechSynthesis.speak(utterance);
-		}, 50);
+		if (!speechEnabled) return;
+		if (Capacitor.isNativePlatform()) {
+			// Use native Android TTS — reliable in Capacitor WebView.
+			TextToSpeech.stop().catch(() => {});
+			TextToSpeech.speak({ text: message, lang: 'nl-NL', rate: 0.95, volume: 1.0 }).catch((e) =>
+				console.warn('TTS fout:', e)
+			);
+		} else {
+			// Web Speech API fallback for browser.
+			if (typeof speechSynthesis === 'undefined') return;
+			if (speechSynthesis.speaking) speechSynthesis.cancel();
+			const utterance = new SpeechSynthesisUtterance(message);
+			const voices = speechSynthesis.getVoices();
+			const nlVoice = voices.find((v) => v.lang && v.lang.startsWith('nl'));
+			if (nlVoice) utterance.voice = nlVoice;
+			utterance.lang = 'nl-NL';
+			utterance.volume = 1;
+			utterance.rate = 0.95;
+			setTimeout(() => {
+				if (speechSynthesis.paused) speechSynthesis.resume();
+				speechSynthesis.speak(utterance);
+			}, 50);
+		}
+	}
+
+	function parseCreditsMarkdown(md) {
+		const blocks = [];
+		const mdLines = (md || '').split('\n');
+		let current = null;
+		let footer = [];
+		let inFooter = false;
+		for (const line of mdLines) {
+			if (/^---+$/.test(line.trim())) {
+				if (current) {
+					blocks.push(current);
+					current = null;
+				}
+				inFooter = true;
+			} else if (!inFooter && line.startsWith('## ')) {
+				if (current) blocks.push(current);
+				current = { heading: line.slice(3).trim(), items: [] };
+			} else if (line.trim()) {
+				// Strip markdown list prefixes (- or *) and emphasis markers (* _ ~)
+				const clean = line
+					.trim()
+					.replace(/^[-*+]\s+/, '')
+					.replace(/[*_~]+/g, '');
+				if (clean) {
+					if (inFooter) footer.push(clean);
+					else if (current) current.items.push(clean);
+				}
+			}
+		}
+		if (current) blocks.push(current);
+		return { blocks, footer };
 	}
 </script>
 
@@ -1113,7 +1511,7 @@
 	/>
 </svelte:head>
 
-<div class={appClasses} style={appStyle}>
+<div class={appClasses}>
 	<a
 		class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:bg-yellow-300 focus:p-3 focus:text-black"
 		href="#main-content"
@@ -1121,68 +1519,218 @@
 		Ga naar de app
 	</a>
 
-	<button
-		class="fixed left-3 top-3 z-[70] flex h-12 w-12 items-center justify-center border border-current bg-inherit text-2xl font-bold shadow"
-		aria-expanded={menuOpen}
-		aria-label="Menu openen"
-		type="button"
-		on:click={() => (menuOpen = !menuOpen)}
-	>
-		☰
-	</button>
+	{#if !menuOpen || menuView === 'main'}
+		<button
+			class="fixed left-3 top-3 z-[70] flex h-12 w-12 items-center justify-center border border-current bg-inherit text-2xl font-bold shadow"
+			aria-expanded={menuOpen}
+			aria-label="Menu openen"
+			type="button"
+			on:click={() => (menuOpen = !menuOpen)}
+		>
+			☰
+		</button>
+	{:else}
+		<button
+			class="fixed left-3 top-3 z-[70] flex h-12 w-12 items-center justify-center border border-current bg-inherit text-2xl font-bold shadow"
+			aria-label="Terug"
+			type="button"
+			on:click={() =>
+				menuView === 'credits'
+					? (menuView = 'settings')
+					: ((menuOpen = false), (menuView = 'main'))}
+		>
+			←
+		</button>
+	{/if}
 
 	{#if !isOnline}
-		<div class="fixed left-0 right-0 top-0 z-50 bg-red-700 px-16 py-3 font-bold text-white" role="alert">
+		<div
+			class="fixed left-0 right-0 top-0 z-50 bg-red-700 px-16 py-3 font-bold text-white"
+			role="alert"
+		>
 			Geen wifi beschikbaar. Productinformatie kan beperkt zijn.
 		</div>
 	{/if}
 
 	{#if menuOpen}
-		<button class="fixed inset-0 z-[60] bg-black/50" aria-label="Menu sluiten" type="button" on:click={() => (menuOpen = false)}></button>
-		<aside
-			class="fixed bottom-0 left-0 top-0 z-[65] flex w-80 max-w-[88vw] flex-col gap-4 border-r border-current/30 p-4 pt-20 shadow-xl"
-			class:bg-black={highContrast}
-			class:bg-white={!highContrast}
-			aria-label="Menu"
-		>
-			<h2 class="text-2xl font-bold">Menu</h2>
-			<section class="grid gap-2" aria-label="Toegankelijkheid">
-				<button class="border border-current px-4 py-3 font-bold" class:bg-blue-500={highContrast} class:text-white={highContrast} aria-pressed={highContrast} type="button" on:click={() => (highContrast = !highContrast)}>Hoog contrast</button>
-				<button class="border border-current px-4 py-3 font-bold" class:bg-blue-500={largeText} class:text-white={largeText} aria-pressed={largeText} type="button" on:click={() => (largeText = !largeText)}>Grote tekst</button>
-				<button class="border border-current px-4 py-3 font-bold" class:bg-blue-500={speechEnabled} class:text-white={speechEnabled} aria-pressed={speechEnabled} type="button" on:click={() => (speechEnabled = !speechEnabled)}>Spraak</button>
-			</section>
-
-			<div class="mt-auto grid gap-3">
-				<section class="border border-current/30 p-3" aria-labelledby="settings-heading">
-					<h3 id="settings-heading" class="mb-3 text-lg font-bold">Instellingen</h3>
+		<button
+			class="fixed inset-0 z-[60] bg-black/50"
+			aria-label="Menu sluiten"
+			type="button"
+			on:click={() => (menuOpen = false)}
+		></button>
+		{#if menuView === 'main'}
+			<aside
+				class="fixed bottom-0 left-0 top-0 z-[65] flex w-80 max-w-[88vw] flex-col gap-4 border-r border-current/30 p-4 pt-20 shadow-xl"
+				class:bg-black={highContrast}
+				class:bg-white={!highContrast}
+				aria-label="Menu"
+			>
+				<h2 class="text-2xl font-bold">Menu</h2>
+				<section class="grid gap-2" aria-label="Toegankelijkheid">
+					<button
+						class="border border-current px-4 py-3 font-bold"
+						class:bg-blue-500={highContrast}
+						class:text-white={highContrast}
+						aria-pressed={highContrast}
+						type="button"
+						on:click={toggleHighContrast}>Hoog contrast</button
+					>
+					<button
+						class="border border-current px-4 py-3 font-bold"
+						class:bg-blue-500={largeText}
+						class:text-white={largeText}
+						aria-pressed={largeText}
+						type="button"
+						on:click={toggleLargeText}>Grote tekst</button
+					>
+					<button
+						class="border border-current px-4 py-3 font-bold"
+						class:bg-blue-500={speechEnabled}
+						class:text-white={speechEnabled}
+						aria-pressed={speechEnabled}
+						type="button"
+						on:click={toggleSpeech}>Spraak</button
+					>
+				</section>
+				<div class="mt-auto grid gap-3">
+					<button
+						class="border border-current px-4 py-3 text-left font-bold"
+						type="button"
+						on:click={() => (menuView = 'settings')}
+					>
+						Instellingen →
+					</button>
+					<button
+						class="border border-current px-4 py-3 text-left font-bold opacity-60"
+						type="button"
+						disabled
+					>
+						Profielen<br /><span class="text-sm font-normal">Nog niet in gebruik</span>
+					</button>
+				</div>
+			</aside>
+		{:else if menuView === 'settings'}
+			<aside
+				class="fixed inset-0 z-[65] flex flex-col gap-6 overflow-y-auto p-4 pt-20 shadow-xl"
+				class:bg-black={highContrast}
+				class:bg-white={!highContrast}
+				aria-label="Instellingen"
+			>
+				<h2 class="text-2xl font-bold">Instellingen</h2>
+				<section class="grid gap-4 border border-current/30 p-4">
 					<label class="grid gap-2 font-semibold" for="app-scale">
 						<span>App grootte: {appScale}%</span>
-						<input id="app-scale" bind:value={appScale} min="50" max="200" step="10" type="range" on:change={saveProfile} />
+						<input
+							id="app-scale"
+							bind:value={appScale}
+							min="50"
+							max="200"
+							step="10"
+							type="range"
+							class="w-full"
+							on:change={saveProfile}
+						/>
 					</label>
 				</section>
-				<button class="border border-current px-4 py-3 text-left font-bold opacity-70" type="button">
-					Profielen<br />
-					<span class="text-sm font-normal">Nog niet in gebruik</span>
-				</button>
-			</div>
-		</aside>
+				<button
+					class="border border-current px-4 py-3 font-bold disabled:opacity-40"
+					type="button"
+					disabled={!speechEnabled}
+					title={speechEnabled ? '' : 'Zet spraak aan om te testen'}
+					on:click={() => speak('Dit is een spraaktest.')}>Test spraak</button
+				>
+				<div class="mt-auto">
+					<button
+						class="w-full border border-current px-4 py-3 text-left font-bold"
+						type="button"
+						on:click={() => (menuView = 'credits')}
+					>
+						Credits →
+					</button>
+				</div>
+			</aside>
+		{:else if menuView === 'credits'}
+			<aside
+				class="fixed inset-0 z-[65] flex flex-col gap-6 overflow-y-auto p-4 pt-20 shadow-xl"
+				class:bg-black={highContrast}
+				class:bg-white={!highContrast}
+				aria-label="Credits"
+			>
+				<h2 class="text-2xl font-bold">Credits</h2>
+				{#if creditBlocks.blocks.length}
+					{#each creditBlocks.blocks as block}
+						<section>
+							<h3 class="mb-2 text-lg font-bold">{block.heading}</h3>
+							<ul class="grid gap-1">
+								{#each block.items as item}
+									<li class="border-l-4 border-blue-500 pl-3">{item}</li>
+								{/each}
+							</ul>
+						</section>
+					{/each}
+					{#if creditBlocks.footer.length}
+						<div class="mt-auto pt-8 text-center text-sm opacity-60">
+							{#each creditBlocks.footer as line}<p>{line}</p>{/each}
+						</div>
+					{/if}
+				{:else}
+					<p class="opacity-60">Geen credits gevonden.</p>
+				{/if}
+			</aside>
+		{/if}
 	{/if}
 
 	<canvas bind:this={canvas} class="hidden" aria-hidden="true"></canvas>
 
 	{#if mode === 'scanning'}
 		<main id="main-content" class="fixed inset-0 bg-black text-white">
-			<video bind:this={video} class="h-full w-full object-cover" aria-label="Cameravoorbeeld" muted playsinline></video>
+			<video
+				bind:this={video}
+				class="h-full w-full object-cover"
+				aria-label="Cameravoorbeeld"
+				muted
+				playsinline
+			></video>
+			{#if cameraLoading || !cameraReady}
+				<div
+					class="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black text-white"
+				>
+					<img
+						class="h-28 w-28 object-contain"
+						src={highContrast ? '/nahnut-logo-dark.png' : '/nahnut-logo-light.png'}
+						alt="NahNut logo"
+					/>
+					<p class="mt-4 text-lg font-bold">Camera wordt geladen...</p>
+				</div>
+			{/if}
 			<div class="fixed left-16 right-3 top-3 z-40 flex items-center justify-between gap-2">
-				<button class="bg-black/75 px-4 py-3 font-bold text-white" type="button" on:click={returnToSelection}>Terug</button>
-				<button class="bg-black/75 px-4 py-3 font-bold text-white" type="button" on:click={switchCamera}>
+				<button
+					class="bg-black/75 px-4 py-3 font-bold text-white"
+					type="button"
+					on:click={returnToSelection}>Terug</button
+				>
+				<button
+					class="bg-black/75 px-4 py-3 font-bold text-white"
+					type="button"
+					on:click={switchCamera}
+				>
 					{cameraFacingMode === 'environment' ? 'Achterkant' : 'Voorkant'}
 				</button>
 			</div>
 			<div class="pointer-events-none absolute inset-8 border-4 border-blue-400"></div>
 			{#if barcodeFrame}
-				<div class="pointer-events-none absolute border-4 border-blue-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.18)]" style:left={barcodeFrame.left} style:top={barcodeFrame.top} style:width={barcodeFrame.width} style:height={barcodeFrame.height} aria-hidden="true">
-					<div class="absolute -top-8 left-0 bg-blue-500 px-2 py-1 text-sm font-bold text-white">Barcode gezien</div>
+				<div
+					class="pointer-events-none absolute border-4 border-blue-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.18)]"
+					style:left={barcodeFrame.left}
+					style:top={barcodeFrame.top}
+					style:width={barcodeFrame.width}
+					style:height={barcodeFrame.height}
+					aria-hidden="true"
+				>
+					<div class="absolute -top-8 left-0 bg-blue-500 px-2 py-1 text-sm font-bold text-white">
+						Barcode gezien
+					</div>
 				</div>
 			{/if}
 			<div class="fixed bottom-0 left-0 right-0 z-40 bg-black/85 p-4 text-white" aria-live="polite">
@@ -1191,179 +1739,43 @@
 			</div>
 		</main>
 	{:else if mode === 'result'}
-		<main id="main-content" class="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-5 px-4 pb-28 pt-20">
+		<main
+			id="main-content"
+			class="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-5 px-4 pb-28 pt-20"
+		>
 			<header class="flex items-center justify-between gap-3">
 				<div>
-					<p class="text-sm font-semibold uppercase tracking-wide text-blue-400">NahNut resultaat</p>
+					<p class="text-sm font-semibold uppercase tracking-wide text-blue-400">
+						NahNut resultaat
+					</p>
 					<h1 class="text-3xl font-bold">{productName || 'Product onbekend'}</h1>
 					{#if productMeta}<p>{productMeta}</p>{/if}
 				</div>
-				<button class="border border-current px-3 py-2 font-bold" type="button" on:click={returnToSelection}>Allergiën selectie</button>
+				<button
+					class="border border-current px-3 py-2 font-bold"
+					type="button"
+					on:click={returnToSelection}>Allergieën selectie</button
+				>
 			</header>
-			<section class="border border-current/30 p-4" aria-labelledby="result-heading-new">
-				<h2 id="result-heading-new" class="text-2xl font-bold">Allergieresultaat</h2>
-				{#if matchedAllergens.length}
-					<ul class="mt-3 grid gap-2">
-						{#each matchedAllergens as match}
-							<li class="border-2 p-3 font-semibold" class:border-red-900={match.severity !== 'caution'} class:bg-red-700={match.severity !== 'caution'} class:text-white={match.severity !== 'caution'} class:border-orange-700={match.severity === 'caution'} class:bg-orange-300={match.severity === 'caution'} class:text-black={match.severity === 'caution'}>
-								<strong>{match.name}</strong><br />
-								<span>{match.severity === 'caution' ? 'Mogelijke aanwijzing' : 'Allergeen gevonden'}: {match.matchedTerms.join(', ')}</span>
-							</li>
-						{/each}
-					</ul>
-				{:else}
-					<p class="mt-3 border-2 border-green-700 bg-green-100 p-3 font-bold text-green-900">
-						Geen geselecteerde allergenen gevonden.
-					</p>
-				{/if}
-			</section>
-			<section class="border border-current/30 p-4" aria-labelledby="scan-overview-heading">
-				<h2 id="scan-overview-heading" class="text-xl font-bold">Scanoverzicht</h2>
-				<p class="mt-2"><strong>Barcode:</strong> {detectedBarcode || 'Geen barcode'}</p>
-				<p class="mt-2" aria-live="polite">{productLookupBusy ? 'Product wordt opgezocht...' : productStatus}</p>
-			</section>
 			<details class="border-l-4 border-yellow-300 bg-yellow-300/15 p-4">
 				<summary class="cursor-pointer font-bold">Veiligheidsmelding prototype</summary>
-				<p class="mt-3">Fout-positieve en fout-negatieve resultaten zijn mogelijk. Gebruik dit prototype niet als enige veiligheidscontrole voor echte medische beslissingen.</p>
-			</details>
-			<div class="fixed bottom-0 left-0 right-0 z-40 border-t border-current/20 p-3" class:bg-black={highContrast} class:bg-slate-50={!highContrast}>
-				<button class="w-full bg-blue-500 px-4 py-4 font-bold text-white" type="button" on:click={startCamera}>Scan opnieuw</button>
-			</div>
-		</main>
-	{:else}
-		<main id="main-content" class="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-5 px-4 pb-28 pt-20">
-			<header class="text-center">
-				<img class="mx-auto mb-3 h-24 w-24 object-contain" src="/nahnut-logo.png" alt="NahNut logo" />
-				<p class="text-sm font-semibold uppercase tracking-wide text-blue-400">Hackathon prototype</p>
-				<h1 class="text-4xl font-bold">NahNut</h1>
-			</header>
-			<section aria-labelledby="profile-heading-new">
-				<h2 id="profile-heading-new" class="mb-2 text-2xl font-bold">Allergieën selectie</h2>
-				<div class="mb-4 flex gap-2">
-					<button class="bg-blue-500 px-4 py-3 font-bold text-white" type="button" on:click={selectAllAllergens}>Selecteer alles</button>
-					<button class="border border-current px-4 py-3 font-bold" type="button" on:click={deselectAllAllergens}>Deselecteer alles</button>
-				</div>
-				<div class="grid gap-4">
-					{#each categorizedAllergens as category}
-						<section class="border border-current/20 p-3" aria-labelledby={`category-new-${category.id}`}>
-							<h3 id={`category-new-${category.id}`} class="mb-3 text-lg font-bold">{category.name}</h3>
-							<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-								{#each category.allergens as allergen}
-									<button class="min-h-14 border border-current/30 p-3 text-left font-semibold" class:bg-blue-500={selectedAllergens.includes(allergen.id)} class:text-white={selectedAllergens.includes(allergen.id)} aria-pressed={selectedAllergens.includes(allergen.id)} type="button" on:click={() => toggleAllergen(allergen.id)}>
-										{allergen.name}
-									</button>
-								{/each}
-							</div>
-						</section>
-					{/each}
-				</div>
-			</section>
-			<div class="fixed bottom-0 left-0 right-0 z-40 border-t border-current/20 p-3" class:bg-black={highContrast} class:bg-slate-50={!highContrast}>
-				<button class="w-full bg-blue-500 px-4 py-4 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50" disabled={!selectedAllergens.length} type="button" on:click={beginScanning}>
-					Start scannen ({selectedAllergens.length} allergieën)
-				</button>
-			</div>
-		</main>
-	{/if}
-
-	{#if false}
-	<main
-		id="main-content"
-		class="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 py-5 sm:px-6"
-	>
-		<header class="flex flex-col gap-3 border-b border-current/20 pb-4">
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<div>
-					<p class="text-sm font-semibold uppercase tracking-wide text-blue-400">
-						Hackathon prototype
-					</p>
-					<h1 class="text-3xl font-bold sm:text-5xl">NahNut</h1>
-				</div>
-				<div class="flex flex-wrap gap-2" aria-label="Toegankelijkheidsinstellingen">
-					<button
-						class="border border-current px-4 py-3 font-bold"
-						class:bg-blue-500={highContrast}
-						class:text-white={highContrast}
-						class:bg-transparent={!highContrast}
-						aria-pressed={highContrast}
-						type="button"
-						on:click={() => (highContrast = !highContrast)}
-					>
-						Hoog contrast
-					</button>
-					<button
-						class="border border-current px-4 py-3 font-bold"
-						class:bg-blue-500={largeText}
-						class:text-white={largeText}
-						class:bg-transparent={!largeText}
-						aria-pressed={largeText}
-						type="button"
-						on:click={() => (largeText = !largeText)}
-					>
-						Grote tekst
-					</button>
-					<button
-						class="border border-current px-4 py-3 font-bold"
-						class:bg-blue-500={speechEnabled}
-						class:text-white={speechEnabled}
-						class:bg-transparent={!speechEnabled}
-						aria-pressed={speechEnabled}
-						type="button"
-						on:click={() => (speechEnabled = !speechEnabled)}
-					>
-						Spraak
-					</button>
-				</div>
-			</div>
-			<details class="max-w-3xl">
-				<summary class="cursor-pointer font-semibold">Hoe werkt het?</summary>
-				<p class="mt-2">
-					Stel in welke allergenen je moet vermijden, richt je telefoon op een etiket en dit
-					prototype gebruikt Tesseract OCR met gesproken camerabegeleiding. Het hangt niet af van
-					barcodedatabases of betaalde AI-vision-API's.
+				<p class="mt-3">
+					Fout-positieve en fout-negatieve resultaten zijn mogelijk. Gebruik dit prototype niet als
+					enige veiligheidscontrole voor echte medische beslissingen.
 				</p>
 			</details>
-		</header>
-
-		<details class="border-l-4 border-yellow-300 bg-yellow-300/15 p-4">
-			<summary id="prototype-warning" class="cursor-pointer font-bold">
-				Veiligheidsmelding prototype
-			</summary>
-			<p class="mt-3">
-				Fout-positieve en fout-negatieve resultaten zijn mogelijk. OCR kan falen bij gebogen
-				verpakkingen, glanzende reflecties, tekst met laag contrast, kleine letters, gevouwen
-				labels, bewegingsonscherpte, onbekende talen of onvolledige ingredientenlijsten. Gebruik dit
-				niet als enige veiligheidscontrole voor echte medische beslissingen.
-			</p>
-		</details>
-
-		<nav class="grid grid-cols-2 gap-2" aria-label="App-onderdelen">
-			<button
-				class="border border-current px-4 py-3 font-bold {mode === 'setup'
-					? 'bg-blue-500 text-white'
-					: 'bg-transparent'}"
-				type="button"
-				on:click={() => (mode = 'setup')}
-			>
-				Profiel
-			</button>
-			<button
-				class="border border-current px-4 py-3 font-bold {mode === 'scan'
-					? 'bg-blue-500 text-white'
-					: 'bg-transparent'} disabled:cursor-not-allowed disabled:opacity-40"
-				disabled={!selectedAllergens.length}
-				type="button"
-				on:click={() => (mode = 'scan')}
-			>
-				Scanner
-			</button>
-		</nav>
-
-		{#if mode === 'scan' && matchedAllergens.length}
-			<div class="lg:hidden" aria-live="assertive">
-				<section class="border-2 border-blue-500 p-4" aria-labelledby="mobile-result-heading">
-					<h3 id="mobile-result-heading" class="mb-3 text-xl font-bold">Allergieresultaat</h3>
-					<ul class="space-y-2">
+			<section class="border border-current/30 p-4" aria-labelledby="result-heading-new">
+				<h2 id="result-heading-new" class="text-2xl font-bold">Allergieresultaat</h2>
+				{#if ocrConfidence > 0 && ocrConfidence < 65}
+					<p
+						class="mt-3 border border-orange-500 bg-orange-500/10 px-3 py-2 text-sm font-semibold"
+						role="alert"
+					>
+						Lage scanbetrouwbaarheid ({ocrConfidence}%) — controleer het etiket handmatig.
+					</p>
+				{/if}
+				{#if matchedAllergens.length}
+					<ul class="mt-3 grid gap-2">
 						{#each matchedAllergens as match}
 							<li
 								class="border-2 p-3 font-semibold"
@@ -1375,90 +1787,125 @@
 								class:text-black={match.severity === 'caution'}
 							>
 								<strong>{match.name}</strong><br />
-								<span>
-									{match.severity === 'caution' ? 'Mogelijke aanwijzing' : 'Allergeen gevonden'}:
-									{match.matchedTerms.join(', ')}
-								</span>
+								<span
+									>{match.severity === 'caution' ? 'Mogelijke aanwijzing' : 'Allergeen gevonden'}: {match.matchedTerms.join(
+										', '
+									)}</span
+								>
 							</li>
 						{/each}
 					</ul>
-				</section>
-			</div>
-		{/if}
-
-		{#if mode === 'setup'}
-			<section
-				class="grid gap-5 lg:grid-cols-[1fr_20rem] pb-24 lg:pb-0"
-				aria-labelledby="profile-heading"
-			>
-				<div>
-					<h2 id="profile-heading" class="mb-2 text-2xl font-bold">Allergieprofiel</h2>
-					<p class="mb-4">
-						Kies een of meer allergenen. Het prototype zoekt op veelvoorkomende Nederlandse en
-						Engelse termen, bijvoorbeeld melk, milk, lactose, whey en casein.
+				{:else}
+					<p class="mt-3 border-2 border-green-700 bg-green-100 p-3 font-bold text-green-900">
+						Geen geselecteerde allergenen gevonden.
 					</p>
-					<div class="mb-4 flex flex-wrap gap-2">
-						<button
-							class="bg-blue-500 px-4 py-3 font-bold text-white"
-							type="button"
-							on:click={selectAllAllergens}
-						>
-							Selecteer alles
-						</button>
-						<button
-							class="border border-current px-4 py-3 font-bold"
-							type="button"
-							on:click={deselectAllAllergens}
-						>
-							Deselecteer alles
-						</button>
-					</div>
-					<div class="grid gap-4">
-						{#each categorizedAllergens as category}
-							<section
-								class="border border-current/20 p-3"
-								aria-labelledby={`category-${category.id}`}
-							>
-								<h3 id={`category-${category.id}`} class="mb-3 text-lg font-bold">
-									{category.name}
-								</h3>
-								<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-									{#each category.allergens as allergen}
-										<label
-											class="flex min-h-14 items-center gap-3 border border-current/30 p-3"
-											class:bg-blue-500={selectedAllergens.includes(allergen.id)}
-											class:text-white={selectedAllergens.includes(allergen.id)}
-										>
-											<input
-												checked={selectedAllergens.includes(allergen.id)}
-												type="checkbox"
-												on:change={() => toggleAllergen(allergen.id)}
-											/>
-											<span class="font-semibold">{allergen.name}</span>
-										</label>
-									{/each}
-								</div>
-							</section>
-						{/each}
-					</div>
-				</div>
-				<aside class="border border-current/30 p-4">
-					<h3 class="text-xl font-bold">Geselecteerd</h3>
-					<p class="mt-2 min-h-20">
-						{selectedNames || 'Nog geen allergenen geselecteerd.'}
+				{/if}
+			</section>
+			{#if canScanIngredients}
+				<div class="border border-blue-500/50 p-4">
+					<p class="mb-3 text-sm font-semibold">
+						Product niet gevonden of ingrediënten ontbreken. Scan de ingrediëntenlijst direct:
 					</p>
 					<button
-						class="mt-4 w-full bg-blue-500 px-4 py-4 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
-						disabled={!selectedAllergens.length}
+						class="w-full border-2 border-blue-500 px-4 py-3 font-bold text-blue-500"
 						type="button"
-						on:click={saveProfile}
+						on:click={startIngredientsScan}>Scan ingrediëntenlijst</button
 					>
-						Profiel opslaan
-					</button>
-				</aside>
+				</div>
+			{/if}
+			<details class="border border-current/30">
+				<summary class="cursor-pointer p-4 text-xl font-bold">Scanoverzicht</summary>
+				<div class="px-4 pb-4">
+					<p class="mt-2"><strong>Barcode:</strong> {detectedBarcode || 'Geen barcode'}</p>
+					<p class="mt-2" aria-live="polite">
+						{productLookupBusy ? 'Product wordt opgezocht...' : productStatus}
+					</p>
+				</div>
+			</details>
+			<div
+				class="fixed bottom-0 left-0 right-0 z-40 border-t border-current/20 p-3"
+				class:bg-black={highContrast}
+				class:bg-slate-50={!highContrast}
+			>
+				<button
+					class="w-full bg-blue-500 px-4 py-4 font-bold text-white"
+					type="button"
+					on:click={startCamera}>Scan opnieuw</button
+				>
+			</div>
+		</main>
+	{:else}
+		<main
+			id="main-content"
+			class="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-5 px-4 pb-28 pt-20"
+		>
+			<details class="border-l-4 border-yellow-300 bg-yellow-300/15 p-4">
+				<summary class="cursor-pointer font-bold">Veiligheidsmelding prototype</summary>
+				<p class="mt-3">
+					Fout-positieve en fout-negatieve resultaten zijn mogelijk. Gebruik dit prototype niet als
+					enige veiligheidscontrole voor echte medische beslissingen.
+				</p>
+			</details>
+			<header class="text-center">
+				<img
+					class="mx-auto mb-3 h-24 w-24 object-contain"
+					src={highContrast ? '/nahnut-logo-dark.png' : '/nahnut-logo-light.png'}
+					alt="NahNut logo"
+				/>
+				<h1 class="text-4xl font-bold">NahNut</h1>
+			</header>
+			<section aria-labelledby="profile-heading-new">
+				<h2 id="profile-heading-new" class="mb-2 text-2xl font-bold">Allergieën selectie</h2>
+				<div class="mb-4 flex gap-2">
+					<button
+						class="bg-blue-500 px-4 py-3 font-bold text-white"
+						type="button"
+						on:click={selectAllAllergens}>Selecteer alles</button
+					>
+					<button
+						class="border border-current px-4 py-3 font-bold"
+						type="button"
+						on:click={deselectAllAllergens}>Deselecteer alles</button
+					>
+				</div>
+				<div class="mb-4">
+					<input
+						type="search"
+						bind:value={allergenSearch}
+						placeholder="Zoek allergeen..."
+						class="w-full border border-current/40 bg-transparent px-4 py-3"
+						aria-label="Zoek allergeen"
+					/>
+				</div>
+				<div class="grid gap-4">
+					{#each filteredCategorizedAllergens as category}
+						<section
+							class="border border-current/20 p-3"
+							aria-labelledby={`category-new-${category.id}`}
+						>
+							<h3 id={`category-new-${category.id}`} class="mb-3 text-lg font-bold">
+								{category.name}
+							</h3>
+							<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+								{#each category.allergens as allergen}
+									<button
+										class="min-h-14 border border-current/30 p-3 text-left font-semibold"
+										class:bg-blue-500={selectedAllergens.includes(allergen.id)}
+										class:text-white={selectedAllergens.includes(allergen.id)}
+										aria-pressed={selectedAllergens.includes(allergen.id)}
+										type="button"
+										on:click={() => toggleAllergen(allergen.id)}
+									>
+										{allergen.name}
+									</button>
+								{/each}
+							</div>
+						</section>
+					{/each}
+				</div>
 			</section>
 			<div
-				class="fixed bottom-0 left-0 right-0 z-40 border-t border-current/20 p-3 lg:hidden"
+				class="fixed bottom-0 left-0 right-0 z-40 border-t border-current/20 p-3"
 				class:bg-black={highContrast}
 				class:bg-slate-50={!highContrast}
 			>
@@ -1466,226 +1913,437 @@
 					class="w-full bg-blue-500 px-4 py-4 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
 					disabled={!selectedAllergens.length}
 					type="button"
-					on:click={saveProfile}
+					on:click={beginScanning}
 				>
-					Profiel opslaan{selectedAllergens.length
-						? ' (' + selectedAllergens.length + ' geselecteerd)'
-						: ''}
+					Start scannen ({selectedAllergens.length} allergieën)
 				</button>
 			</div>
-		{:else}
-			<section
-				class="grid gap-5 lg:grid-cols-[1fr_24rem]"
-				class:pb-24={barcodeLocked}
-				aria-labelledby="scanner-heading"
-			>
-				<div class="flex flex-col gap-4">
-					{#if !barcodeLocked}
-						<div class="flex flex-wrap items-center justify-between gap-3">
-							<div>
-								<h2 id="scanner-heading" class="text-2xl font-bold">Barcode scanner</h2>
-								<details class="mt-2 border border-current/25 px-3 py-2">
-									<summary class="cursor-pointer font-semibold">
-										Gekozen profiel ({selectedAllergens.length})
-									</summary>
-									<p class="mt-2">{selectedNames || 'Nog geen allergenen geselecteerd.'}</p>
-								</details>
-							</div>
-							<div class="flex flex-wrap items-end gap-2">
-								<label class="flex flex-col gap-1 font-semibold sm:hidden" for="camera-facing-mode">
-									<span>Camera</span>
-									<select
-										id="camera-facing-mode"
-										bind:value={cameraFacingMode}
-										class="min-h-12 border border-current/40 bg-transparent px-3"
-										disabled={scanning}
+		</main>
+	{/if}
+
+	{#if false}
+		<main
+			id="main-content"
+			class="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 py-5 sm:px-6"
+		>
+			<header class="flex flex-col gap-3 border-b border-current/20 pb-4">
+				<div class="flex flex-wrap items-center justify-between gap-3">
+					<div>
+						<p class="text-sm font-semibold uppercase tracking-wide text-blue-400">
+							Hackathon prototype
+						</p>
+						<h1 class="text-3xl font-bold sm:text-5xl">NahNut</h1>
+					</div>
+					<div class="flex flex-wrap gap-2" aria-label="Toegankelijkheidsinstellingen">
+						<button
+							class="border border-current px-4 py-3 font-bold"
+							class:bg-blue-500={highContrast}
+							class:text-white={highContrast}
+							class:bg-transparent={!highContrast}
+							aria-pressed={highContrast}
+							type="button"
+							on:click={() => (highContrast = !highContrast)}
+						>
+							Hoog contrast
+						</button>
+						<button
+							class="border border-current px-4 py-3 font-bold"
+							class:bg-blue-500={largeText}
+							class:text-white={largeText}
+							class:bg-transparent={!largeText}
+							aria-pressed={largeText}
+							type="button"
+							on:click={() => (largeText = !largeText)}
+						>
+							Grote tekst
+						</button>
+						<button
+							class="border border-current px-4 py-3 font-bold"
+							class:bg-blue-500={speechEnabled}
+							class:text-white={speechEnabled}
+							class:bg-transparent={!speechEnabled}
+							aria-pressed={speechEnabled}
+							type="button"
+							on:click={() => (speechEnabled = !speechEnabled)}
+						>
+							Spraak
+						</button>
+					</div>
+				</div>
+				<details class="max-w-3xl">
+					<summary class="cursor-pointer font-semibold">Hoe werkt het?</summary>
+					<p class="mt-2">
+						Stel in welke allergenen je moet vermijden, richt je telefoon op een etiket en dit
+						prototype gebruikt Tesseract OCR met gesproken camerabegeleiding. Het hangt niet af van
+						barcodedatabases of betaalde AI-vision-API's.
+					</p>
+				</details>
+			</header>
+
+			<details class="border-l-4 border-yellow-300 bg-yellow-300/15 p-4">
+				<summary id="prototype-warning" class="cursor-pointer font-bold">
+					Veiligheidsmelding prototype
+				</summary>
+				<p class="mt-3">
+					Fout-positieve en fout-negatieve resultaten zijn mogelijk. OCR kan falen bij gebogen
+					verpakkingen, glanzende reflecties, tekst met laag contrast, kleine letters, gevouwen
+					labels, bewegingsonscherpte, onbekende talen of onvolledige ingredientenlijsten. Gebruik
+					dit niet als enige veiligheidscontrole voor echte medische beslissingen.
+				</p>
+			</details>
+
+			<nav class="grid grid-cols-2 gap-2" aria-label="App-onderdelen">
+				<button
+					class="border border-current px-4 py-3 font-bold {mode === 'setup'
+						? 'bg-blue-500 text-white'
+						: 'bg-transparent'}"
+					type="button"
+					on:click={() => (mode = 'setup')}
+				>
+					Profiel
+				</button>
+				<button
+					class="border border-current px-4 py-3 font-bold {mode === 'scan'
+						? 'bg-blue-500 text-white'
+						: 'bg-transparent'} disabled:cursor-not-allowed disabled:opacity-40"
+					disabled={!selectedAllergens.length}
+					type="button"
+					on:click={() => (mode = 'scan')}
+				>
+					Scanner
+				</button>
+			</nav>
+
+			{#if mode === 'scan' && matchedAllergens.length}
+				<div class="lg:hidden" aria-live="assertive">
+					<section class="border-2 border-blue-500 p-4" aria-labelledby="mobile-result-heading">
+						<h3 id="mobile-result-heading" class="mb-3 text-xl font-bold">Allergieresultaat</h3>
+						<ul class="space-y-2">
+							{#each matchedAllergens as match}
+								<li
+									class="border-2 p-3 font-semibold"
+									class:border-red-900={match.severity !== 'caution'}
+									class:bg-red-700={match.severity !== 'caution'}
+									class:text-white={match.severity !== 'caution'}
+									class:border-orange-700={match.severity === 'caution'}
+									class:bg-orange-300={match.severity === 'caution'}
+									class:text-black={match.severity === 'caution'}
+								>
+									<strong>{match.name}</strong><br />
+									<span>
+										{match.severity === 'caution' ? 'Mogelijke aanwijzing' : 'Allergeen gevonden'}:
+										{match.matchedTerms.join(', ')}
+									</span>
+								</li>
+							{/each}
+						</ul>
+					</section>
+				</div>
+			{/if}
+
+			{#if mode === 'setup'}
+				<section
+					class="grid gap-5 lg:grid-cols-[1fr_20rem] pb-24 lg:pb-0"
+					aria-labelledby="profile-heading"
+				>
+					<div>
+						<h2 id="profile-heading" class="mb-2 text-2xl font-bold">Allergieprofiel</h2>
+						<p class="mb-4">
+							Kies een of meer allergenen. Het prototype zoekt op veelvoorkomende Nederlandse en
+							Engelse termen, bijvoorbeeld melk, milk, lactose, whey en casein.
+						</p>
+						<div class="mb-4 flex flex-wrap gap-2">
+							<button
+								class="bg-blue-500 px-4 py-3 font-bold text-white"
+								type="button"
+								on:click={selectAllAllergens}
+							>
+								Selecteer alles
+							</button>
+							<button
+								class="border border-current px-4 py-3 font-bold"
+								type="button"
+								on:click={deselectAllAllergens}
+							>
+								Deselecteer alles
+							</button>
+						</div>
+						<div class="grid gap-4">
+							{#each categorizedAllergens as category}
+								<section
+									class="border border-current/20 p-3"
+									aria-labelledby={`category-${category.id}`}
+								>
+									<h3 id={`category-${category.id}`} class="mb-3 text-lg font-bold">
+										{category.name}
+									</h3>
+									<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+										{#each category.allergens as allergen}
+											<label
+												class="flex min-h-14 items-center gap-3 border border-current/30 p-3"
+												class:bg-blue-500={selectedAllergens.includes(allergen.id)}
+												class:text-white={selectedAllergens.includes(allergen.id)}
+											>
+												<input
+													checked={selectedAllergens.includes(allergen.id)}
+													type="checkbox"
+													on:change={() => toggleAllergen(allergen.id)}
+												/>
+												<span class="font-semibold">{allergen.name}</span>
+											</label>
+										{/each}
+									</div>
+								</section>
+							{/each}
+						</div>
+					</div>
+					<aside class="border border-current/30 p-4">
+						<h3 class="text-xl font-bold">Geselecteerd</h3>
+						<p class="mt-2 min-h-20">
+							{selectedNames || 'Nog geen allergenen geselecteerd.'}
+						</p>
+						<button
+							class="mt-4 w-full bg-blue-500 px-4 py-4 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+							disabled={!selectedAllergens.length}
+							type="button"
+							on:click={saveProfile}
+						>
+							Profiel opslaan
+						</button>
+					</aside>
+				</section>
+				<div
+					class="fixed bottom-0 left-0 right-0 z-40 border-t border-current/20 p-3 lg:hidden"
+					class:bg-black={highContrast}
+					class:bg-slate-50={!highContrast}
+				>
+					<button
+						class="w-full bg-blue-500 px-4 py-4 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+						disabled={!selectedAllergens.length}
+						type="button"
+						on:click={saveProfile}
+					>
+						Profiel opslaan{selectedAllergens.length
+							? ' (' + selectedAllergens.length + ' geselecteerd)'
+							: ''}
+					</button>
+				</div>
+			{:else}
+				<section
+					class="grid gap-5 lg:grid-cols-[1fr_24rem]"
+					class:pb-24={barcodeLocked}
+					aria-labelledby="scanner-heading"
+				>
+					<div class="flex flex-col gap-4">
+						{#if !barcodeLocked}
+							<div class="flex flex-wrap items-center justify-between gap-3">
+								<div>
+									<h2 id="scanner-heading" class="text-2xl font-bold">Barcode scanner</h2>
+									<details class="mt-2 border border-current/25 px-3 py-2">
+										<summary class="cursor-pointer font-semibold">
+											Gekozen profiel ({selectedAllergens.length})
+										</summary>
+										<p class="mt-2">{selectedNames || 'Nog geen allergenen geselecteerd.'}</p>
+									</details>
+								</div>
+								<div class="flex flex-wrap items-end gap-2">
+									<label
+										class="flex flex-col gap-1 font-semibold sm:hidden"
+										for="camera-facing-mode"
 									>
-										<option class="text-black" value="environment">Achtercamera</option>
-										<option class="text-black" value="user">Voorcamera</option>
-									</select>
-								</label>
+										<span>Camera</span>
+										<select
+											id="camera-facing-mode"
+											bind:value={cameraFacingMode}
+											class="min-h-12 border border-current/40 bg-transparent px-3"
+											disabled={scanning}
+										>
+											<option class="text-black" value="environment">Achtercamera</option>
+											<option class="text-black" value="user">Voorcamera</option>
+										</select>
+									</label>
+									<button
+										class="bg-blue-500 px-4 py-3 font-bold text-white disabled:opacity-50"
+										disabled={scanning}
+										type="button"
+										on:click={startCamera}
+									>
+										Start camera
+									</button>
+									<button
+										class="border border-current px-4 py-3 font-bold disabled:opacity-50"
+										disabled={!scanning}
+										type="button"
+										on:click={stopScanning}
+									>
+										Stop
+									</button>
+								</div>
+							</div>
+
+							<div class="relative overflow-hidden border border-current/40 bg-slate-900">
+								{#if barcodeSnapshot}
+									<img
+										alt="Vastgelegd camerabeeld van de gevonden barcode"
+										class="aspect-[4/3] w-full object-cover"
+										src={barcodeSnapshot}
+									/>
+								{:else}
+									<video
+										bind:this={video}
+										class="aspect-[4/3] w-full object-cover"
+										aria-label="Cameravoorbeeld"
+										muted
+										playsinline
+									></video>
+									<div class="pointer-events-none absolute inset-8 border-4 border-blue-400"></div>
+								{/if}
+								{#if barcodeFrame}
+									<div
+										class="pointer-events-none absolute border-4 border-blue-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.18)]"
+										style:left={barcodeFrame.left}
+										style:top={barcodeFrame.top}
+										style:width={barcodeFrame.width}
+										style:height={barcodeFrame.height}
+										aria-hidden="true"
+									>
+										<div
+											class="absolute -top-8 left-0 bg-blue-400 px-2 py-1 text-sm font-bold text-white"
+										>
+											Barcode gezien
+										</div>
+									</div>
+								{/if}
+								<div
+									class="absolute bottom-0 left-0 right-0 bg-black/80 p-3 text-white"
+									aria-live="polite"
+								>
+									{guidance}
+								</div>
+							</div>
+						{/if}
+
+						{#if barcodeLocked}
+							<div
+								class="fixed bottom-0 left-0 right-0 z-40 border-t border-current/20 p-3"
+								class:bg-black={highContrast}
+								class:bg-slate-50={!highContrast}
+							>
 								<button
-									class="bg-blue-500 px-4 py-3 font-bold text-white disabled:opacity-50"
-									disabled={scanning}
+									class="w-full bg-blue-500 px-4 py-4 font-bold text-white"
 									type="button"
 									on:click={startCamera}
 								>
-									Start camera
-								</button>
-								<button
-									class="border border-current px-4 py-3 font-bold disabled:opacity-50"
-									disabled={!scanning}
-									type="button"
-									on:click={stopScanning}
-								>
-									Stop
+									Scan opnieuw
 								</button>
 							</div>
-						</div>
-
-						<div class="relative overflow-hidden border border-current/40 bg-slate-900">
-							{#if barcodeSnapshot}
-								<img
-									alt="Vastgelegd camerabeeld van de gevonden barcode"
-									class="aspect-[4/3] w-full object-cover"
-									src={barcodeSnapshot}
-								/>
-							{:else}
-								<video
-									bind:this={video}
-									class="aspect-[4/3] w-full object-cover"
-									aria-label="Cameravoorbeeld"
-									muted
-									playsinline
-								></video>
-								<div class="pointer-events-none absolute inset-8 border-4 border-blue-400"></div>
-							{/if}
-							{#if barcodeFrame}
-								<div
-									class="pointer-events-none absolute border-4 border-blue-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.18)]"
-									style:left={barcodeFrame.left}
-									style:top={barcodeFrame.top}
-									style:width={barcodeFrame.width}
-									style:height={barcodeFrame.height}
-									aria-hidden="true"
-								>
-									<div
-										class="absolute -top-8 left-0 bg-blue-400 px-2 py-1 text-sm font-bold text-white"
-									>
-										Barcode gezien
-									</div>
-								</div>
-							{/if}
-							<div
-								class="absolute bottom-0 left-0 right-0 bg-black/80 p-3 text-white"
-								aria-live="polite"
-							>
-								{guidance}
-							</div>
-						</div>
-					{/if}
-
-					{#if barcodeLocked}
-						<div
-							class="fixed bottom-0 left-0 right-0 z-40 border-t border-current/20 p-3"
-							class:bg-black={highContrast}
-							class:bg-slate-50={!highContrast}
-						>
-							<button
-								class="w-full bg-blue-500 px-4 py-4 font-bold text-white"
-								type="button"
-								on:click={startCamera}
-							>
-								Scan opnieuw
-							</button>
-						</div>
-					{/if}
-
-					<canvas bind:this={canvas} class="hidden" aria-hidden="true"></canvas>
-
-					{#if !barcodeLocked}
-						<section class="border border-current/30 p-4" aria-labelledby="barcode-heading">
-							<h3 id="barcode-heading" class="text-xl font-bold">Barcode zoeken</h3>
-							<p class="mt-2">
-								Scan de barcode met de camera of voer de code handmatig in. Als het product niet
-								bekend is, toont de app een duidelijke melding.
-							</p>
-							<div class="mt-3 flex flex-col gap-2 sm:flex-row">
-								<label class="sr-only" for="manual-barcode">Barcode</label>
-								<input
-									id="manual-barcode"
-									bind:value={manualBarcode}
-									class="min-h-12 flex-1 border border-current/40 bg-transparent px-3"
-									inputmode="numeric"
-									pattern="[0-9]*"
-									placeholder="Bijvoorbeeld 8712345678901"
-									type="text"
-								/>
-								<button
-									class="bg-blue-500 px-4 py-3 font-bold text-white"
-									type="button"
-									on:click={saveManualBarcode}
-								>
-									Zoeken
-								</button>
-							</div>
-							<p class="mt-2" aria-live="polite">{barcodeStatus}</p>
-						</section>
-					{/if}
-				</div>
-
-				<aside class="flex flex-col gap-4">
-					<section
-						class="hidden border border-current/30 p-4 lg:block"
-						aria-labelledby="result-heading"
-					>
-						<h3 id="result-heading" class="text-xl font-bold">Allergieresultaat</h3>
-						{#if matchedAllergens.length}
-							<ul class="mt-3 space-y-2">
-								{#each matchedAllergens as match}
-									<li
-										class="border-2 p-3 font-semibold"
-										class:border-red-900={match.severity !== 'caution'}
-										class:bg-red-700={match.severity !== 'caution'}
-										class:text-white={match.severity !== 'caution'}
-										class:border-orange-700={match.severity === 'caution'}
-										class:bg-orange-300={match.severity === 'caution'}
-										class:text-black={match.severity === 'caution'}
-									>
-										<strong>{match.name}</strong>
-										<br />
-										<span>
-											{match.severity === 'caution'
-												? 'Mogelijke aanwijzing'
-												: 'Allergeen gevonden'}:
-											{match.matchedTerms.join(', ')}
-										</span>
-									</li>
-								{/each}
-							</ul>
-						{:else}
-							<p class="mt-2">Nog geen gekozen allergenen gevonden.</p>
 						{/if}
-					</section>
 
-					<section class="border border-current/30 p-4" aria-labelledby="product-heading">
-						<h3 id="product-heading" class="text-xl font-bold">Scanoverzicht</h3>
-						<ol class="mt-3 grid gap-3">
-							<li class="border-l-4 border-blue-500 pl-3">
-								<strong>1. Barcode</strong>
-								<p>{detectedBarcode || 'Nog geen barcode gevonden.'}</p>
-							</li>
-							<li class="border-l-4 border-blue-500 pl-3">
-								<strong>2. Product</strong>
-								<p>{productName || 'Nog geen product bekend.'}</p>
-							</li>
-							{#if productMeta}
-								<li class="border-l-4 border-blue-500 pl-3">
-									<strong>Details</strong>
-									<p>{productMeta}</p>
-								</li>
-							{/if}
-							{#if productIngredients}
-								<li class="border-l-4 border-blue-500 pl-3">
-									<strong>3. Ingredienten</strong>
-									<p>Ingredienten uit Open Food Facts gebruikt voor de allergiecheck.</p>
-								</li>
-							{/if}
-						</ol>
-					</section>
+						<canvas bind:this={canvas} class="hidden" aria-hidden="true"></canvas>
 
-					<details class="border border-current/30 p-4">
-						<summary id="live-status" class="cursor-pointer text-xl font-bold"
-							>Technische status</summary
+						{#if !barcodeLocked}
+							<section class="border border-current/30 p-4" aria-labelledby="barcode-heading">
+								<h3 id="barcode-heading" class="text-xl font-bold">Barcode zoeken</h3>
+								<p class="mt-2">
+									Scan de barcode met de camera of voer de code handmatig in. Als het product niet
+									bekend is, toont de app een duidelijke melding.
+								</p>
+								<div class="mt-3 flex flex-col gap-2 sm:flex-row">
+									<label class="sr-only" for="manual-barcode">Barcode</label>
+									<input
+										id="manual-barcode"
+										bind:value={manualBarcode}
+										class="min-h-12 flex-1 border border-current/40 bg-transparent px-3"
+										inputmode="numeric"
+										pattern="[0-9]*"
+										placeholder="Bijvoorbeeld 8712345678901"
+										type="text"
+									/>
+									<button
+										class="bg-blue-500 px-4 py-3 font-bold text-white"
+										type="button"
+										on:click={saveManualBarcode}
+									>
+										Zoeken
+									</button>
+								</div>
+								<p class="mt-2" aria-live="polite">{barcodeStatus}</p>
+							</section>
+						{/if}
+					</div>
+
+					<aside class="flex flex-col gap-4">
+						<section
+							class="hidden border border-current/30 p-4 lg:block"
+							aria-labelledby="result-heading"
 						>
-						<p class="mt-3" aria-live="assertive">{status}</p>
-						<p class="mt-2">OCR-engine: {workerReady ? 'klaar' : 'niet geladen'}</p>
-						<p>OCR-voortgang: {ocrProgress}%</p>
-						<p>{backendStatus}</p>
-					</details>
-				</aside>
-			</section>
-		{/if}
-	</main>
+							<h3 id="result-heading" class="text-xl font-bold">Allergieresultaat</h3>
+							{#if matchedAllergens.length}
+								<ul class="mt-3 space-y-2">
+									{#each matchedAllergens as match}
+										<li
+											class="border-2 p-3 font-semibold"
+											class:border-red-900={match.severity !== 'caution'}
+											class:bg-red-700={match.severity !== 'caution'}
+											class:text-white={match.severity !== 'caution'}
+											class:border-orange-700={match.severity === 'caution'}
+											class:bg-orange-300={match.severity === 'caution'}
+											class:text-black={match.severity === 'caution'}
+										>
+											<strong>{match.name}</strong>
+											<br />
+											<span>
+												{match.severity === 'caution'
+													? 'Mogelijke aanwijzing'
+													: 'Allergeen gevonden'}:
+												{match.matchedTerms.join(', ')}
+											</span>
+										</li>
+									{/each}
+								</ul>
+							{:else}
+								<p class="mt-2">Nog geen gekozen allergenen gevonden.</p>
+							{/if}
+						</section>
+
+						<section class="border border-current/30 p-4" aria-labelledby="product-heading">
+							<h3 id="product-heading" class="text-xl font-bold">Scanoverzicht</h3>
+							<ol class="mt-3 grid gap-3">
+								<li class="border-l-4 border-blue-500 pl-3">
+									<strong>1. Barcode</strong>
+									<p>{detectedBarcode || 'Nog geen barcode gevonden.'}</p>
+								</li>
+								<li class="border-l-4 border-blue-500 pl-3">
+									<strong>2. Product</strong>
+									<p>{productName || 'Nog geen product bekend.'}</p>
+								</li>
+								{#if productMeta}
+									<li class="border-l-4 border-blue-500 pl-3">
+										<strong>Details</strong>
+										<p>{productMeta}</p>
+									</li>
+								{/if}
+								{#if productIngredients}
+									<li class="border-l-4 border-blue-500 pl-3">
+										<strong>3. Ingredienten</strong>
+										<p>Ingredienten uit Open Food Facts gebruikt voor de allergiecheck.</p>
+									</li>
+								{/if}
+							</ol>
+						</section>
+
+						<details class="border border-current/30 p-4">
+							<summary id="live-status" class="cursor-pointer text-xl font-bold"
+								>Technische status</summary
+							>
+							<p class="mt-3" aria-live="assertive">{status}</p>
+							<p class="mt-2">OCR-engine: {workerReady ? 'klaar' : 'niet geladen'}</p>
+							<p>OCR-voortgang: {ocrProgress}%</p>
+							<p>{backendStatus}</p>
+						</details>
+					</aside>
+				</section>
+			{/if}
+		</main>
 	{/if}
 </div>

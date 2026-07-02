@@ -1,4 +1,4 @@
-const COMPACT_MATCH_MIN_LENGTH = 5;
+const COMPACT_MATCH_MIN_LENGTH = 4;
 
 export function findAllergenMatches(text, selectedAllergens, allergens) {
 	const normalized = ` ${normalizeForMatch(text)} `;
@@ -40,12 +40,22 @@ export function normalizeForMatch(value) {
 function termMatches(term, normalizedText, compactText) {
 	const normalizedTerm = normalizeForMatch(term);
 	const safeTerm = normalizedTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+	// Exact word-boundary match
 	const hasWordMatch = new RegExp(`(^|[^a-z0-9])${safeTerm}([^a-z0-9]|$)`, 'i').test(
 		normalizedText
 	);
-
 	if (hasWordMatch) return true;
 
+	// Prefix match: term starts a compound word ("melk" in "melkpoeder", "appel" in "appelmoes")
+	if (normalizedTerm.length >= 4) {
+		const hasPrefixMatch = new RegExp(`(^|[^a-z0-9])${safeTerm}[a-z0-9]`, 'i').test(
+			normalizedText
+		);
+		if (hasPrefixMatch) return true;
+	}
+
+	// Compact whole-text substring match (handles spaces between parts of compound words)
 	const compactTerm = normalizeCompact(term);
 	return compactTerm.length >= COMPACT_MATCH_MIN_LENGTH && compactText.includes(compactTerm);
 }
