@@ -1,9 +1,17 @@
 ﻿<script>
+	import { user } from '$lib/store';
+	import { goto } from '$app/navigation';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { BrowserMultiFormatReader } from '@zxing/browser';
 	import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 	import { createWorker } from 'tesseract.js';
 	import { findAllergenMatches, normalizeWhitespace } from '$lib/allergenMatch.js';
+
+	if ($user) {
+		console.log("user", $user);
+	} else {
+		goto("/login");
+	}
 
 	const STORAGE_KEY = 'allergies-detect-profile';
 
