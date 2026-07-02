@@ -1,0 +1,12 @@
+{
+  "name": "allergies-detect-workspace",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "powershell -ExecutionPolicy Bypass -File ./frontend/dev.ps1 start",
+    "dev:stop": "powershell -ExecutionPolicy Bypass -File ./frontend/dev.ps1 stop",
+    "dev:status": "powershell -ExecutionPolicy Bypass -File ./frontend/dev.ps1 status",
+    "check": "npm run check --prefix frontend",
+    "build": "npm run build --prefix frontend"
+  }
+}

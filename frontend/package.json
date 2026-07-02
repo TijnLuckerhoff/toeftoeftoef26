@@ -4,6 +4,9 @@
 	"private": true,
 	"scripts": {
 		"dev": "vite dev",
+		"dev:all": "powershell -ExecutionPolicy Bypass -File ./dev.ps1 start",
+		"dev:all:stop": "powershell -ExecutionPolicy Bypass -File ./dev.ps1 stop",
+		"dev:all:status": "powershell -ExecutionPolicy Bypass -File ./dev.ps1 status",
 		"build": "vite build",
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
@@ -32,5 +35,10 @@
 		"vite": "^5.0.3",
 		"vitest": "^2.0.0"
 	},
-	"type": "module"
+	"type": "module",
+	"dependencies": {
+		"@zxing/browser": "^0.1.5",
+		"@zxing/library": "^0.21.3",
+		"tesseract.js": "^7.0.0"
+	}
 }

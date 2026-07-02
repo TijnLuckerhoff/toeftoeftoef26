@@ -6,6 +6,20 @@ We use this Sveltekit and tailwind boilerplate throughout the whole course.
 
 Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
 
+Start the frontend and backend together:
+
+```bash
+npm run dev:all
+```
+
+Stop both from another terminal:
+
+```bash
+npm run dev:all:stop
+```
+
+You can also press `Ctrl+C` in the terminal running `npm run dev:all` to stop both.
+
 ```bash
 npm run dev
 
